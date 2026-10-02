@@ -66,17 +66,15 @@ keeps one frame every 2 s or more, and packs them into sheets of its own.
 - **Some videos have no captions at all**, like the 美股频道 video above. A
   summarizer that only reads transcripts has nothing to work with there.
 
-## Next
+## Where it's going
 
-- **Speech:** read captions from the page when they exist, otherwise run
-  speech-to-text on audio chunks in parallel (SenseVoice or Whisper for Chinese).
-- **Where to look:** Jev (TypeSafe's typed-judgment model) runs over transcript
-  windows and on-screen text, asking questions like "is the speaker referring to
-  something on screen?" and "does the topic change here?". This decides which
-  moments get full-resolution frames and a vision model.
-- **The summary**, streamed into the same rows as the scenes.
-- **A Chrome extension**, so nothing needs scraping: the page, the player and the
-  captions are already in the viewer's browser.
+The goal is to read any video like a document: one page with a scrubbable ribbon, short
+sections where every sentence links to its second, and an ask box. The agreed direction,
+milestones and open decisions are in [docs/DIRECTION.md](docs/DIRECTION.md), and the
+target screen is [docs/read-view.html](docs/read-view.html).
+
+Next is milestone 2: Chinese and English transcripts made on the Mac with Apple's
+on-device transcriber, lined up with the scenes.
 
 ## Tests
 
