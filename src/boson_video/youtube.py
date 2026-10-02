@@ -172,6 +172,7 @@ def parse_video(player: dict, video_id: str) -> Video:
         duration=float(d.get("lengthSeconds") or 0),
         url=f"https://www.youtube.com/watch?v={video_id}",
         id=video_id,
+        description=d.get("shortDescription", ""),
     )
 
 

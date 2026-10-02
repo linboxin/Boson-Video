@@ -54,8 +54,8 @@ The layout follows the kind of video (`scenes.profile` decides):
 | # | Milestone | Status | Done when |
 | --- | --- | --- | --- |
 | 1 | Map: link or file → scene timeline page | Done, 2026-09-24 | About 1 s; the 3 reference videos come out right |
-| 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Next, waiting for the download OK | Accuracy and speed measured on real videos |
-| 3 | Read view: sections written and checked, ask box, ribbon | | The target design works on the reference videos |
+| 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
+| 3 | Read view: sections written and checked, ask box, ribbon | Next | The target design works on the reference videos |
 | 4 | Layouts by kind of video | | Each kind renders its own layout |
 | 5 | A library of many videos, then the Chrome extension | | |
 
@@ -78,11 +78,12 @@ The layout follows the kind of video (`scenes.profile` decides):
 
 Accounts, a mobile app, live streams, sites other than YouTube.
 
-## Open decisions (owner)
+## Decisions (owner)
 
-- Downloads for milestone 2: yt-dlp (3.2 MB, from PyPI) and Apple's Chinese speech model
-  (macOS downloads it and shows the size once asked).
-- The language of the summary for Chinese videos: Chinese, English, or both.
+- 2026-10-02: downloads for milestone 2 approved: yt-dlp (from PyPI) and Apple's Chinese
+  speech model. Test-video audio stays in `out/`, which git ignores.
+- 2026-10-02: summaries are written in the video's language, with a one-click switch to
+  English.
 
 ## Facts to build on (checked 2026-09-24 to 2026-09-30)
 
@@ -92,3 +93,10 @@ Accounts, a mobile app, live streams, sites other than YouTube.
   Slide titles are readable after 3× enlargement; body text and numbers are not, so
   numbers need full-resolution frames.
 - Anything on screen for less than the thumbnail interval can be missed entirely.
+- Apple's transcriber on the owner's M5: about 200× real time with the audio cut at
+  pauses into 8 pieces. Mandarin is good; English names inside Chinese speech come out
+  garbled ("Money or Life" → "Monelife"). Hint words (`AnalysisContext.contextualStrings`)
+  changed nothing, so milestone 3's writer gets the names from the title and description
+  (`speech.names`) and spells them right.
+- Audio downloads vary from 4 s to 18 s for the same 9 MB, and YouTube sometimes refuses
+  a request. Starting speech-to-text while the audio is still arriving is the fix to try.

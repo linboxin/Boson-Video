@@ -1,22 +1,24 @@
 # Boson-Video
 
-See what happens in a video, and when, in about a second, before any AI runs.
-
-Give it a YouTube link (or a video file) and you get a page that lays the video out
-as a timeline of scenes: every new visual and when it appears, which shots keep
-coming back, the chapters, and YouTube's "most replayed" curve. It is the first
-stage of a near-instant video summarizer: it tells the later stages where the
-picture matters and where it's just a talking head.
+Read any video like a document. Give it a YouTube link (or a video file) and you get
+a page that lays the video out as scenes in about a second (every new visual and when
+it appears, which shots keep coming back, the chapters, YouTube's "most replayed"
+curve), then fills in every word that was said, transcribed on your Mac, each passage
+linked to its second.
 
 ```bash
 uv sync
 uv run boson-video "https://www.youtube.com/watch?v=zjkBMFhNj_g" --open
 uv run boson-video ~/Movies/lecture.mp4
+uv run boson-video 9JKT5rBbrwM --lang zh_CN     # speech language; guessed from the title otherwise
+uv run boson-video 9JKT5rBbrwM --no-words       # scenes only
 ```
 
 Each run writes `out/<video id>/index.html` (one self-contained file) and
-`timeline.json` (frames, scenes, chapters, heatmap, captions list and timings, for
-the stages that come next).
+`timeline.json` (frames, scenes, chapters, heatmap, transcript and timings, for the
+stages that come next). The page is written twice: with the scenes, then with the words.
+The words need macOS 26 and Xcode's command line tools (Apple's on-device transcriber
+is built on first use).
 
 ## Measured
 
@@ -31,6 +33,19 @@ varies between runs, 0.4 to 1.2 s so far):
 
 Most of the time is YouTube building the watch page. In a browser extension that
 page is already loaded, so the same result would take about 0.3 s.
+
+### Words (2026-10-02, M5 MacBook)
+
+| Video | Length | Language | Words ready | Download · prep · speech | Error rate against human captions |
+| --- | --- | --- | --- | --- | --- |
+| Money or Life 美股频道 (talking head) | 24:53 | Chinese | **13.8 s** (6.9 s with audio cached) | 4.6 · 1.5 · 6.0 s | no captions exist; Chinese is good, English names come out garbled |
+| Andrej Karpathy, "Intro to Large Language Models" | 59:48 | English | **30.5 s** | 7.3 · 3.5 · 18.5 s | only automatic captions exist |
+| Ken Robinson, "Do schools kill creativity?" (TED) | 20:06 | English | **9.9 s** | 2.8 · 1.1 · 5.1 s | **10.0% of words**; about half are filler words ("you know" alone: 38) that the human captions leave out |
+| 陳永儀, TEDxTaipei | 14:29 | Chinese | **7.1 s** | 2.9 · 0.8 · 2.3 s | **5.3% of characters**; mostly look-alikes (裡/裏, 制/製) and sound-alikes (地/的) |
+
+Speech runs at about 200× real time when the audio is cut into 8 pieces transcribed at
+once (80× in one stream). "Words ready" counts from the start of the run. Scores come
+from `scripts/accuracy.py`.
 
 ## How it works
 
@@ -55,7 +70,13 @@ page is already loaded, so the same result would take about 0.3 s.
 Local files take the same path. ffmpeg decodes only keyframes (`-skip_frame nokey`),
 keeps one frame every 2 s or more, and packs them into sheets of its own.
 
-## What YouTube allows (checked 2026-09-24)
+5. **Words.** yt-dlp downloads only a low-bitrate audio track (about 9 MB for 25
+   minutes). ffmpeg turns it into 16 kHz mono and finds the pauses; the audio is cut at
+   pauses into up to 8 pieces, and Apple's on-device transcriber (SpeechAnalyzer, run by
+   a small Swift tool, [bv_speech.swift](src/boson_video/bv_speech.swift)) transcribes
+   them all at once. Each passage lands in the scene row it was said in.
+
+## What YouTube allows (checked 2026-09-24 and 2026-10-02)
 
 - **Captions:** the page lists the caption tracks, but downloading one from a
   script returns HTTP 200 with an empty body, because the real player sends a
@@ -65,6 +86,10 @@ keeps one frame every 2 s or more, and packs them into sheets of its own.
   the dependable source.
 - **Some videos have no captions at all**, like the 美股频道 video above. A
   summarizer that only reads transcripts has nothing to work with there.
+- **Audio downloads vary.** The same 9 MB took 4 s when YouTube offered a plain audio
+  file and 18 s when it only offered streaming segments, and a request was sometimes
+  refused (so the download retries once). Starting speech-to-text while the audio is
+  still arriving is the planned fix.
 
 ## Where it's going
 
@@ -73,14 +98,16 @@ sections where every sentence links to its second, and an ask box. The agreed di
 milestones and open decisions are in [docs/DIRECTION.md](docs/DIRECTION.md), and the
 target screen is [docs/read-view.html](docs/read-view.html).
 
-Next is milestone 2: Chinese and English transcripts made on the Mac with Apple's
-on-device transcriber, lined up with the scenes.
+Milestones 1 (scenes) and 2 (words) are done. Next is milestone 3, the read view:
+short sections written in the video's language, each sentence checked against the
+transcript, plus the ask box.
 
 ## Tests
 
 ```bash
-uv run pytest            # offline: parsing, sheet slicing, scenes on synthetic videos, the page, the ffmpeg path
-uv run pytest -m live    # hits YouTube
+uv run pytest            # offline: parsing, sheet slicing, scenes and audio cutting on synthetic media, the page, scoring
+uv run pytest -m live    # hits YouTube and runs Apple's transcriber
+uv run python scripts/accuracy.py snZ811wvjjw zh-TW zh_TW   # score a transcript against human captions
 ```
 
 ## Limits
@@ -94,3 +121,6 @@ uv run pytest -m live    # hits YouTube
   YouTube's own reason.
 - For local files, frames follow the encoder's keyframes, which can be 8 s or more
   apart in some files.
+- English names inside Chinese speech come out garbled ("Money or Life" became
+  "Monelife"). Apple's transcriber ignored hint words, so the summary writer gets the
+  names from the title and description instead (`speech.names`).

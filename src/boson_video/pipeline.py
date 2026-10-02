@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 
-from . import local, scenes, storyboard, youtube
+from . import audio, local, scenes, speech, storyboard, youtube
 from .timeline import Timeline
 
 
@@ -71,6 +71,32 @@ def from_file(path: str) -> Timeline:
     clock.lap("scenes")
     clock.laps["total"] = clock.total()
     return Timeline(video=video, frames=frames, sheets=sheets, scenes=found, timings=clock.laps)
+
+
+def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio: bool = False) -> None:
+    """Fill in what was said: fetch the audio, cut it at pauses, transcribe the pieces at once."""
+    clock = Stopwatch()
+    folder.mkdir(parents=True, exist_ok=True)
+    if tl.video.id:
+        src = audio.fetch_youtube(tl.video.id, folder, fresh=fresh_audio)
+        clock.lap("audio download")
+    else:
+        src = Path(tl.video.url)
+    wav = audio.to_wav(src, folder / "audio16k.wav")
+    total = audio.duration(wav)
+    plan = audio.plan_pieces(total, audio.silences(wav), audio.piece_count(total))
+    pieces = audio.cut(wav, plan, folder)
+    clock.lap("audio prep")
+    locale = locale or speech.guess_locale(tl.video.title)
+    speech.ensure(locale)
+    tl.transcript = speech.transcribe(pieces, locale)
+    tl.language = locale
+    clock.lap("speech")
+    for path, _ in pieces:
+        path.unlink(missing_ok=True)
+    wav.unlink(missing_ok=True)
+    tl.timings.update(clock.laps)
+    tl.timings["words total"] = clock.total()
 
 
 async def _warm(client: httpx.AsyncClient, video_id: str) -> None:

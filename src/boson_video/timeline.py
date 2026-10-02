@@ -13,6 +13,7 @@ class Video:
     duration: float  # seconds
     url: str  # watch URL, or a local file path
     id: str | None = None  # YouTube id; None for local files
+    description: str = ""
 
     def link(self, t: float) -> str:
         """Where to send the viewer to watch second `t`."""
@@ -82,6 +83,15 @@ class Scene:
 
 
 @dataclass
+class Segment:
+    """A stretch of speech: what was said between `start` and `end`."""
+
+    start: float
+    end: float
+    text: str
+
+
+@dataclass
 class Timeline:
     video: Video
     frames: list[Frame]
@@ -90,7 +100,13 @@ class Timeline:
     chapters: list[Chapter] = field(default_factory=list)
     heat: list[HeatPoint] = field(default_factory=list)
     captions: list[CaptionTrack] = field(default_factory=list)
+    language: str | None = None  # locale the speech was transcribed in, e.g. "zh_CN"
+    transcript: list[Segment] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)  # milliseconds per stage
+
+    def said_during(self, start: float, end: float) -> list[Segment]:
+        """Segments whose middle falls in [start, end)."""
+        return [s for s in self.transcript if start <= (s.start + s.end) / 2 < end]
 
     def to_json(self) -> dict:
         """Everything except the image bytes, for the stages that come next."""
@@ -101,6 +117,8 @@ class Timeline:
             "chapters": [asdict(c) for c in self.chapters],
             "heat": [asdict(h) for h in self.heat],
             "captions": [asdict(c) for c in self.captions],
+            "language": self.language,
+            "transcript": [asdict(s) for s in self.transcript],
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,
         }

@@ -4,7 +4,7 @@ import re
 from PIL import Image
 
 from boson_video.render import render
-from boson_video.timeline import Chapter, Frame, HeatPoint, Scene, Sheet, Timeline, Video
+from boson_video.timeline import Chapter, Frame, HeatPoint, Scene, Segment, Sheet, Timeline, Video
 
 
 def _timeline(n_scenes: int = 3, gap: float = 10.0) -> Timeline:
@@ -49,3 +49,25 @@ def test_scene_rows_link_to_their_moment():
 def test_fast_cutting_switches_to_a_grid():
     assert 'class="scenes dense"' in render(_timeline(n_scenes=36, gap=1.0))
     assert 'class="scenes"' in render(_timeline(n_scenes=3))
+
+
+def test_words_sit_in_their_scene_rows():
+    tl = _timeline()
+    tl.language = "zh_CN"
+    tl.transcript = [Segment(1, 5, "大家好 <b>"), Segment(21, 25, "第二段")]
+    page = render(tl)
+    assert '<div class="said" lang="zh-CN">' in page
+    assert "大家好 &lt;b&gt;" in page and "第二段" in page
+    first_row = page[page.index('id="s0"'): page.index('id="s1"')]
+    assert "大家好" in first_row and "第二段" not in first_row
+    assert "words: 2 passages in Chinese, transcribed on this Mac" in page
+    assert "and its audio, transcribed on this Mac" in page
+
+
+def test_fast_cutting_puts_the_words_after_the_grid():
+    tl = _timeline(n_scenes=36, gap=1.0)
+    tl.language = "en_US"
+    tl.transcript = [Segment(0, 3, "hello there")]
+    page = render(tl)
+    assert "What&#x27;s said" in page or "What's said" in page
+    assert page.count("hello there") == 1

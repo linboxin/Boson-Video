@@ -8,6 +8,7 @@ dependencies = [
     "httpx[http2]>=0.28",
     "numpy>=2.0",
     "pillow>=11.0",
+    "yt-dlp>=2026.8.19",
 ]
 
 [project.scripts]

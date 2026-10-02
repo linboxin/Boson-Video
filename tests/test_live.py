@@ -19,3 +19,13 @@ def test_talking_head_end_to_end():
     tl = build("9JKT5rBbrwM")  # a 25-min talking head with no captions
     assert tl.captions == []
     assert any(s.kind == "base" and s.duration > 1200 for s in tl.scenes)
+
+
+def test_words_on_the_mac(tmp_path):
+    from boson_video.pipeline import add_words
+
+    tl = build("snZ811wvjjw")  # TEDxTaipei, Mandarin, 14:29, human zh-TW captions
+    add_words(tl, tmp_path, "zh_TW")
+    assert tl.language == "zh_TW"
+    assert sum(len(s.text) for s in tl.transcript) > 2500
+    assert tl.timings["speech"] < 30_000

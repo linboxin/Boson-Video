@@ -7,17 +7,22 @@ browser.
 
 ## Commands
 
-- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [-o out] [--level N]`
-- `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube)
+- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--lang zh_CN] [-o out]`
+- `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
+- `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
 
 ## Map
 
 - `src/boson_video/youtube.py`: watch page → video, storyboard levels, chapters, heatmap, caption list
 - `storyboard.py`: fetch sheets in parallel, slice into frames
 - `local.py`: ffmpeg keyframes → frames + our own sheets
+- `audio.py`: yt-dlp audio download, 16 kHz WAV, pauses, cutting into pieces
+- `speech.py` + `bv_speech.swift`: Apple's on-device transcriber (macOS 26), built on first use into
+  `~/Library/Caches/boson-video/`; pieces run at once; `names()` lists the video's own names for the writer
+- `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `scenes.py`: cuts, looks, base/repeat/new, `profile()` headline
 - `render.py`: today's self-contained page (CSS sprites, no JS); milestone 3 grows it into the read view
-- `pipeline.py`: orchestration + per-stage timings · `cli.py`: entry point
+- `pipeline.py`: `build` (scenes) and `add_words` (speech), with per-stage timings · `cli.py`: entry point
 - `timeline.py`: the shared data model; `timeline.json` is the contract between stages
 - `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design)
 

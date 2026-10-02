@@ -1,8 +1,8 @@
 """One self-contained HTML page: the video as a vertical timeline of scenes.
 
 Frames are shown straight from the sprite sheets (CSS background offsets), so
-nothing is re-encoded and the page works offline. Each scene is a row; the
-transcript and summary for that stretch of time will sit in the same row later.
+nothing is re-encoded and the page works offline. Each scene is a row, and what
+was said during it sits in the same row; the summary will join it there.
 """
 
 from __future__ import annotations
@@ -31,6 +31,8 @@ def render(tl: Timeline) -> str:
             rows.append(f'<h2 class="chapter">{_e(chapters[ci].title)}</h2>')
             ci += 1
         rows.append(_scene_row(tl, s, dense))
+    if dense and tl.transcript:
+        rows.append('<h2 class="chapter said-all">What\'s said</h2>' + _said(tl, tl.transcript))
     timings = " · ".join(f"{k} {ms / 1000:.2f} s" for k, ms in tl.timings.items() if k != "total")
     total = tl.timings.get("total")
     title = _e(v.title or "Untitled video")
@@ -69,6 +71,12 @@ h2.chapter{{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:v
 .scene.base,.scene.repeat{{padding:8px 0}}
 .scene.base .body,.scene.repeat .body{{align-items:center}}
 .note{{color:var(--muted);font-size:13px}}
+.said{{grid-column:2;max-width:74ch;display:grid;gap:8px;margin-top:6px;font-size:15.5px;line-height:1.75}}
+.said p{{margin:0}}
+.said a{{font-size:12px;color:var(--muted);text-decoration:none;font-variant-numeric:tabular-nums;margin-right:8px}}
+.said a:hover{{text-decoration:underline}}
+.dense .said-all{{grid-column:1/-1}}
+.dense > .said{{grid-column:1/-1}}
 .scenes.dense{{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px 14px}}
 .dense .scene{{display:block;border:0;padding:0}}
 .dense .when{{margin-bottom:4px}}
@@ -76,7 +84,7 @@ h2.chapter{{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:v
 .dense .when a{{margin-right:6px}}
 .dense h2.chapter{{grid-column:1/-1}}
 footer{{margin-top:40px;color:var(--muted);font-size:12px}}
-@media (max-width:560px){{.scene{{grid-template-columns:1fr}}}}
+@media (max-width:560px){{.scene{{grid-template-columns:1fr}}.said{{grid-column:1}}}}
 {sheets_css}
 </style>
 </head>
@@ -86,14 +94,14 @@ footer{{margin-top:40px;color:var(--muted);font-size:12px}}
 <h1><a href="{_e(v.link(0))}">{title}</a></h1>
 <div class="meta">{_e(v.channel)}{" · " if v.channel else ""}{_clock(v.duration)}</div>
 <p class="headline">{_e(headline)}</p>
-<div class="stats">{len(tl.frames)} frames (one per {frame_s:.0f} s) → {len(tl.scenes)} scenes, {sum(1 for s in tl.scenes if s.kind == "new")} new visuals{_captions_note(tl)}</div>
+<div class="stats">{len(tl.frames)} frames (one per {frame_s:.0f} s) → {len(tl.scenes)} scenes, {sum(1 for s in tl.scenes if s.kind == "new")} new visuals{_captions_note(tl)}{_words_note(tl)}</div>
 </header>
 <div class="bar">{_bar(tl)}</div>
 <div class="legend"><span><i style="background:var(--new)"></i>new visual</span><span><i style="background:var(--repeat)"></i>seen before</span><span><i style="background:var(--base)"></i>base shot (host / camera)</span>{'<span><i style="background:var(--heat)"></i>most replayed</span>' if tl.heat else ""}</div>
 <div class="scenes{" dense" if dense else ""}">
 {"".join(rows)}
 </div>
-<footer>Built from the video's own storyboard thumbnails; nothing was downloaded but those. Ready in {total / 1000 if total else 0:.2f} s ({timings}). boson-video {__version__}</footer>
+<footer>Built from the video's own storyboard thumbnails{" and its audio, transcribed on this Mac" if tl.transcript else "; nothing was downloaded but those"}. Ready in {total / 1000 if total else 0:.2f} s ({timings}). boson-video {__version__}</footer>
 </main>
 </body>
 </html>
@@ -122,7 +130,26 @@ def _scene_row(tl: Timeline, s: Scene, dense: bool = False) -> str:
             first = next(o for o in tl.scenes if o.look == s.look)
             note = f'Same picture as <a href="#s{first.index}">{_clock(first.start)}</a>.'
         body = f'<div class="body">{_frame(tl, key, 0.4, v.link(key.t))}<span class="note">{note}</span></div>'
-    return f'<section class="scene {s.kind}" id="s{s.index}">{when}{body}</section>'
+    said = "" if dense else _said(tl, tl.said_during(s.start, s.end))
+    return f'<section class="scene {s.kind}" id="s{s.index}">{when}{body}{said}</section>'
+
+
+def _said(tl: Timeline, segments) -> str:
+    """What was said, one paragraph per stretch of speech, each linked to its second."""
+    if not segments:
+        return ""
+    lang = (tl.language or "").replace("_", "-")
+    paras = "".join(
+        f'<p><a href="{_e(tl.video.link(g.start))}">{_clock(g.start)}</a>{_e(g.text)}</p>' for g in segments
+    )
+    return f'<div class="said" lang="{_e(lang)}">{paras}</div>'
+
+
+def _words_note(tl: Timeline) -> str:
+    if not tl.transcript:
+        return ""
+    language = {"zh": "Chinese", "en": "English", "yue": "Cantonese"}.get((tl.language or "").split("_")[0], tl.language)
+    return f" · words: {len(tl.transcript)} passages in {language}, transcribed on this Mac"
 
 
 def _frame(tl: Timeline, f: Frame, scale: float, href: str) -> str:
