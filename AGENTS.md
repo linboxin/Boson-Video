@@ -7,7 +7,8 @@ browser.
 
 ## Commands
 
-- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--lang zh_CN] [-o out]`
+- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--no-summary] [--lang zh_CN] [-o out]`
+- `uv run boson-video ask <video> "question"`: the moment that answers it (needs the page to exist)
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
 - `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
 
@@ -20,9 +21,13 @@ browser.
 - `speech.py` + `bv_speech.swift`: Apple's on-device transcriber (macOS 26), built on first use into
   `~/Library/Caches/boson-video/`; pieces run at once; `names()` lists the video's own names for the writer
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
+- `writer.py`: Mercury writes the summary and sections (strict JSON schema, every sentence cites passages, one retry)
+- `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired
+- `ask.py`: Jev finds the passage that answers a question (one pass, or two for more than 255 passages)
+- `env.py`: loads keys from `.env`
 - `scenes.py`: cuts, looks, base/repeat/new, `profile()` headline
-- `render.py`: today's self-contained page (CSS sprites, no JS); milestone 3 grows it into the read view
-- `pipeline.py`: `build` (scenes) and `add_words` (speech), with per-stage timings · `cli.py`: entry point
+- `render.py`: the self-contained read view (ribbon, summary with language switch, search, scenes); a little JS, no libraries
+- `pipeline.py`: `build` (scenes), `add_words` (speech), `add_summary` (write + check), with per-stage timings · `cli.py`: entry point
 - `timeline.py`: the shared data model; `timeline.json` is the contract between stages
 - `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design)
 

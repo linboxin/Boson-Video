@@ -8,7 +8,7 @@ from pathlib import Path
 
 import httpx
 
-from . import audio, local, scenes, speech, storyboard, youtube
+from . import audio, checker, local, scenes, speech, storyboard, writer, youtube
 from .timeline import Timeline
 
 
@@ -97,6 +97,18 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     wav.unlink(missing_ok=True)
     tl.timings.update(clock.laps)
     tl.timings["words total"] = clock.total()
+
+
+def add_summary(tl: Timeline, effort: str = "low") -> dict:
+    """Write the read view's summary and sections (Mercury), then check every sentence (Jev)."""
+    clock = Stopwatch()
+    names = speech.names(tl.video.title, tl.video.channel, tl.video.description)
+    tl.summary, write_stats = writer.write(tl, names, effort)
+    clock.lap("write")
+    check_stats = checker.check(tl)
+    clock.lap("check")
+    tl.timings.update(clock.laps)
+    return {"write": write_stats, "check": check_stats}
 
 
 async def _warm(client: httpx.AsyncClient, video_id: str) -> None:

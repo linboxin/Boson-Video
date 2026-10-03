@@ -1,10 +1,14 @@
 # Boson-Video
 
-Read any video like a document. Give it a YouTube link (or a video file) and you get
-a page that lays the video out as scenes in about a second (every new visual and when
-it appears, which shots keep coming back, the chapters, YouTube's "most replayed"
-curve), then fills in every word that was said, transcribed on your Mac, each passage
-linked to its second.
+Read any video like a document. Give it a YouTube link (or a video file) and you get one
+page, filled in as each stage finishes:
+
+1. **Scenes, in about a second:** every new visual and when it appears, the shots that keep
+   coming back, the chapters and YouTube's "most replayed" curve, on a ribbon you drag to
+   see the frame and the words at any second.
+2. **Every word that was said,** transcribed on your Mac and filed under its scene.
+3. **A summary in the video's language** (with an English switch) where every sentence links
+   to its second and is checked against the transcript, plus search over what was said.
 
 ```bash
 uv sync
@@ -12,13 +16,15 @@ uv run boson-video "https://www.youtube.com/watch?v=zjkBMFhNj_g" --open
 uv run boson-video ~/Movies/lecture.mp4
 uv run boson-video 9JKT5rBbrwM --lang zh_CN     # speech language; guessed from the title otherwise
 uv run boson-video 9JKT5rBbrwM --no-words       # scenes only
+uv run boson-video ask zjkBMFhNj_g "how much does it cost to train llama 2?"   # → 5:20
 ```
 
 Each run writes `out/<video id>/index.html` (one self-contained file) and
 `timeline.json` (frames, scenes, chapters, heatmap, transcript and timings, for the
 stages that come next). The page is written twice: with the scenes, then with the words.
 The words need macOS 26 and Xcode's command line tools (Apple's on-device transcriber
-is built on first use).
+is built on first use). The summary needs `INCEPTION_API_KEY` (Mercury writes it) and
+`TYPESAFE_API_KEY` (Jev checks it and answers `ask`) in `.env`.
 
 ## Measured
 
@@ -46,6 +52,20 @@ page is already loaded, so the same result would take about 0.3 s.
 Speech runs at about 200× real time when the audio is cut into 8 pieces transcribed at
 once (80× in one stream). "Words ready" counts from the start of the run. Scores come
 from `scripts/accuracy.py`.
+
+### Read view (2026-10-02)
+
+| Video | Read view ready | Written (Mercury) | Checked (Jev) | Sentences confirmed | Cost |
+| --- | --- | --- | --- | --- | --- |
+| Money or Life 美股频道 (Chinese, 24:53) | **13.7 s** (audio cached) | 6.1 s | 0.5 s | 13 / 13 | $0.0006 |
+| Ken Robinson, TED (English, 20:06) | **12.1 s** | 4.2 s | 0.8 s | 22 / 25 | $0.0006 |
+| 陳永儀, TEDxTaipei (Chinese, 14:29) | **11.2 s** | 5.9 s | 0.5 s | 14 / 14 | $0.0004 |
+| Andrej Karpathy (English, 59:48) | **33.0 s** | 8.9 s | 0.7 s | 22 / 23 | $0.0015 |
+
+Is the check real? On the 美股频道 summary, ten sentences with one planted error each (bought
+for shorted, 740 → 640, 3.21 → 5.21, the US → China, a friend → himself…) were all
+caught, and the thirteen true ones all passed. Among real summaries the flags were mostly
+real slips, such as giving Ken Robinson's son's age to the son's girlfriend.
 
 ## How it works
 
@@ -75,6 +95,18 @@ keeps one frame every 2 s or more, and packs them into sheets of its own.
    pauses into up to 8 pieces, and Apple's on-device transcriber (SpeechAnalyzer, run by
    a small Swift tool, [bv_speech.swift](src/boson_video/bv_speech.swift)) transcribes
    them all at once. Each passage lands in the scene row it was said in.
+6. **Summary.** Mercury (Inception's diffusion model) gets the transcript as compact
+   numbered lines, the chapters and the names the video writes itself (title, channel,
+   description), and returns a strict JSON summary in the video's language with an English
+   version, every sentence citing the passages it rests on. Speech recognition garbles
+   English names inside Chinese ("Monelife"); the name list lets the writer spell them right.
+7. **Checks.** Jev (TypeSafe) judges each sentence against its cited passages and their
+   neighbours: supported, contradicted or says nothing. Numbers are checked in code by
+   value, because Jev is weak at them; a neighbouring passage that holds a number joins the
+   sentence's citations.
+8. **Ask.** `boson-video ask` follows TypeSafe's line-search recipe: one Choice over passage
+   ids plus a Noul for "is it answered at all?", in two passes for transcripts longer than
+   255 passages.
 
 ## What YouTube allows (checked 2026-09-24 and 2026-10-02)
 
@@ -98,9 +130,8 @@ sections where every sentence links to its second, and an ask box. The agreed di
 milestones and open decisions are in [docs/DIRECTION.md](docs/DIRECTION.md), and the
 target screen is [docs/read-view.html](docs/read-view.html).
 
-Milestones 1 (scenes) and 2 (words) are done. Next is milestone 3, the read view:
-short sections written in the video's language, each sentence checked against the
-transcript, plus the ask box.
+Milestones 1 (scenes), 2 (words) and 3 (read view) are done. Next is milestone 4: the
+page takes the shape of the video (article, slide deck, steps, contact sheet).
 
 ## Tests
 
@@ -121,6 +152,8 @@ uv run python scripts/accuracy.py snZ811wvjjw zh-TW zh_TW   # score a transcript
   YouTube's own reason.
 - For local files, frames follow the encoder's keyframes, which can be 8 s or more
   apart in some files.
-- English names inside Chinese speech come out garbled ("Money or Life" became
-  "Monelife"). Apple's transcriber ignored hint words, so the summary writer gets the
-  names from the title and description instead (`speech.names`).
+- English names inside Chinese speech come out garbled in the transcript ("Money or Life"
+  became "Monelife"). Apple's transcriber ignored hint words; the summary spells them right
+  from the video's own name list, but the transcript keeps the garbled form.
+- Asking in your own words works from the command line; inside the page, search matches
+  exact words. Asking inside the page needs a server, which the extension will provide.

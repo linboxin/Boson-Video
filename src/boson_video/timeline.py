@@ -92,6 +92,38 @@ class Segment:
 
 
 @dataclass
+class Sentence:
+    """One sentence of the read view, resting on transcript passages."""
+
+    text: str  # in the video's language
+    text_en: str  # English version; empty when the video is in English
+    evidence: list[int]  # indices into Timeline.transcript
+    check: str = ""  # "supported" | "contradicted" | "unsupported" | "uncited"; "" = not checked
+    check_p: float = 0.0  # Jev's probability for that verdict
+    check_note: str = ""  # why a sentence failed, when code (not Jev) found the reason
+
+
+@dataclass
+class Section:
+    title: str
+    title_en: str
+    start: float
+    end: float
+    sentences: list[Sentence]
+
+
+@dataclass
+class Summary:
+    tldr: list[Sentence]
+    sections: list[Section]
+    writer: str  # the model that wrote it
+    checker: str = ""  # the model that checked it
+
+    def sentences(self) -> list[Sentence]:
+        return self.tldr + [s for sec in self.sections for s in sec.sentences]
+
+
+@dataclass
 class Timeline:
     video: Video
     frames: list[Frame]
@@ -102,6 +134,7 @@ class Timeline:
     captions: list[CaptionTrack] = field(default_factory=list)
     language: str | None = None  # locale the speech was transcribed in, e.g. "zh_CN"
     transcript: list[Segment] = field(default_factory=list)
+    summary: Summary | None = None
     timings: dict[str, float] = field(default_factory=dict)  # milliseconds per stage
 
     def said_during(self, start: float, end: float) -> list[Segment]:
@@ -119,6 +152,7 @@ class Timeline:
             "captions": [asdict(c) for c in self.captions],
             "language": self.language,
             "transcript": [asdict(s) for s in self.transcript],
+            "summary": asdict(self.summary) if self.summary else None,
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,
         }

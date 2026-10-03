@@ -39,9 +39,9 @@ The layout follows the kind of video (`scenes.profile` decides):
 
 ## Principles
 
-1. **Speed.** The map in about 1 s (measured). The full page in about 15 s for a
-   25-minute video (a target, not yet measured). Time every stage, and say which numbers
-   are measured and which are estimates.
+1. **Speed.** The map in about 1 s, the full read view in about 15 s for a 25-minute
+   video (both measured: 1.4 s and 14.4 s with the audio cached). Time every stage, and
+   say which numbers are measured and which are estimates.
 2. **Evidence.** No sentence on the page without the timestamp it came from.
 3. **Local first.** It runs on the owner's Mac. Every model sits behind a small interface
    so it can be swapped.
@@ -55,8 +55,8 @@ The layout follows the kind of video (`scenes.profile` decides):
 | --- | --- | --- | --- |
 | 1 | Map: link or file → scene timeline page | Done, 2026-09-24 | About 1 s; the 3 reference videos come out right |
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
-| 3 | Read view: sections written and checked, ask box, ribbon | Next | The target design works on the reference videos |
-| 4 | Layouts by kind of video | | Each kind renders its own layout |
+| 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` (asking inside the page needs a server, so it comes with the extension) |
+| 4 | Layouts by kind of video | Next | Each kind renders its own layout |
 | 5 | A library of many videos, then the Chrome extension | | |
 
 ## Who does what
@@ -73,6 +73,31 @@ The layout follows the kind of video (`scenes.profile` decides):
 - **Backups only:** SenseVoice and Gemini, if Apple's transcriber disappoints on real
   speech. A vision model for charts and diagrams comes later.
 - **An agent loop** only for open-ended follow-up questions, using the timeline as its tools.
+
+## Quality bars
+
+Each needs a number we track; "today" is as of 2026-10-02.
+
+| Bar | Measured as | Today |
+| --- | --- | --- |
+| Faithful | Share of summary sentences that fail the check | 4 of 75 flagged on four videos, mostly real writer slips (a son's age given to his girlfriend); planted errors caught 10 of 10, true sentences accepted 13 of 13 |
+| Complete | Chapter starts, "most replayed" peaks and points from human summaries that the page covers | Not measured |
+| Names and numbers right | Errors in names, tickers and figures | Names fixed by the writer from the video's own name list; numbers checked in code |
+| Fast | Time to first view, time to full read view | 1.4 s and 14.4 s (25-minute video, audio cached) |
+| Findable | Ask lands within 10 s of the right moment | 4 of 4 spot checks right, including "not in this video" |
+| Sees the screen | Numbers and code read from full-resolution frames | Slide titles only |
+
+## Research directions
+
+1. **How few frames are enough:** our scene-map frames against evenly spaced frames at the
+   same token budget, on public long-video question benchmarks (Video-MME, LongVideoBench).
+2. **A small judge deciding where to look:** Jev picking the moments worth a vision model,
+   against a large model doing the same, by cost and accuracy.
+3. **Verified summaries:** how often summaries invent things, with and without checks.
+4. **Names in mixed-language speech:** fixing names from the video's own text, scored by name
+   error rate before and after.
+5. **Claims over time:** predictions pulled from videos with timestamps, checked later
+   against what happened: a channel's track record.
 
 ## Not now
 
@@ -100,3 +125,8 @@ Accounts, a mobile app, live streams, sites other than YouTube.
   (`speech.names`) and spells them right.
 - Audio downloads vary from 4 s to 18 s for the same 9 MB, and YouTube sometimes refuses
   a request. Starting speech-to-text while the audio is still arriving is the fix to try.
+- Mercury writes a 25-minute video's summary in about 5 s and a 1-hour one in about 9 s,
+  for well under a cent; about one reply in ten has the wrong shape (a list, or empty), so
+  the writer retries once. Jev checks a summary in under a second.
+- Jev is weak at numbers (it let "3.21" become "5.21"), so numbers are compared in code by
+  value ("2 million" = 2000000, 1亿 = 一亿) against the cited passages and their neighbours.

@@ -33,8 +33,9 @@ def test_page_is_self_contained_and_escaped():
     assert "Talk &lt;b&gt;&quot;quotes&quot;&lt;/b&gt;" in page and "<b>" not in page
     assert "Chan &amp; Co" in page
     assert "data:image/jpeg;base64," in page
-    assert "<script" not in page and "http://" not in page.replace("http://www.w3.org", "")
-    assert "Ready in 0.95 s" in page
+    assert "http://" not in page.replace("http://www.w3.org", "")
+    assert "scenes ready in 0.95 s" in page
+    assert "const DATA = " in page and 'id="rib"' in page
 
 
 def test_scene_rows_link_to_their_moment():
@@ -61,7 +62,7 @@ def test_words_sit_in_their_scene_rows():
     first_row = page[page.index('id="s0"'): page.index('id="s1"')]
     assert "大家好" in first_row and "第二段" not in first_row
     assert "words: 2 passages in Chinese, transcribed on this Mac" in page
-    assert "and its audio, transcribed on this Mac" in page
+    assert "its audio transcribed on this Mac" in page
 
 
 def test_fast_cutting_puts_the_words_after_the_grid():
@@ -70,4 +71,28 @@ def test_fast_cutting_puts_the_words_after_the_grid():
     tl.transcript = [Segment(0, 3, "hello there")]
     page = render(tl)
     assert "What&#x27;s said" in page or "What's said" in page
-    assert page.count("hello there") == 1
+    html_part = page.split("<script>")[0]  # the words also travel in the page data for the ribbon and search
+    assert html_part.count("hello there") == 1
+
+
+def test_summary_sentences_link_check_and_switch_language():
+    from boson_video.timeline import Section, Sentence, Summary
+
+    tl = _timeline()
+    tl.language = "zh_CN"
+    tl.transcript = [Segment(1, 5, "做空了 Meta"), Segment(21, 25, "买入 Grab")]
+    tl.summary = Summary(
+        tldr=[Sentence("博主做空 Meta。", "He shorted Meta.", [0], "supported", 0.97)],
+        sections=[Section("操作", "Trades", 0, 30, [
+            Sentence("买入 Grab。", "Bought Grab.", [1], "unsupported", 0.61),
+            Sentence("没有出处。", "", [], "uncited", 1.0),
+        ])],
+        writer="mercury-2.5", checker="jev",
+    )
+    page = render(tl)
+    assert 'data-lang="en"' in page and "中文" in page
+    assert '<span class="t-en" lang="en">He shorted Meta.</span>' in page
+    assert "watch?v=abcdefghijk&amp;t=21s" in page  # the sentence links to its passage
+    assert 'class="mark ok"' in page and 'class="mark warn"' in page
+    assert "1 of 3 sentences checked" in page
+    assert 'id="q"' in page  # search over what was said
