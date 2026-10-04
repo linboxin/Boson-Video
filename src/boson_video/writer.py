@@ -8,16 +8,11 @@ English version for the toggle.
 from __future__ import annotations
 
 import json
-import os
 import time
 
-import httpx
-
+from . import mercury
+from .mercury import MODEL
 from .timeline import Section, Sentence, Summary, Timeline
-
-URL = "https://api.inceptionlabs.ai/v1/chat/completions"
-MODEL = "mercury-2.5"
-PRICE_PER_MTOK = (0.04, 0.15)  # input, output (list price, 2026-09)
 
 LANGUAGES = {
     "zh_CN": "Simplified Chinese",
@@ -33,7 +28,7 @@ Rules:
 - Use only what the transcript says. Every sentence cites the ids of all the transcript passages it rests on (usually 1-6); never use facts from passages you don't cite.
 - Be concrete: keep the numbers, prices, dates, names, tickers, decisions and reasons. "He shorted Meta at 740" beats "He talked about Meta".
 - The transcript was made by speech recognition, so names and English words inside other languages are often misheard (for example "Monelife" for "Money or Life"). When a word clearly sounds like an entry in `names`, write it the way `names` spells it. Never invent a name.
-- `text` and `title` are in {language}. `text_en` and `title_en` are their English versions (leave them empty if the video is in English).
+- `text` and `title` are in {language}. {english_rule}
 - `tldr`: 2-3 sentences saying what the video is and its main conclusion.
 - `sections`: in time order. If `chapters` are given, make one section per chapter, titled like the chapter. Otherwise split by topic into about one section per 4-8 minutes (at least 2). Each section has 2-4 sentences. `start_id` is the id of the section's first transcript passage.
 """
@@ -91,46 +86,20 @@ def request_body(tl: Timeline, names: list[str], effort: str = "low") -> dict:
         # one line per passage, "<id> <time> <text>": far fewer tokens than an object per passage
         "transcript": "\n".join(f"{i} {_clock(s.start)} {s.text}" for i, s in enumerate(tl.transcript)),
     }
-    return {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": SYSTEM.format(language=language)},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        "reasoning_effort": effort,
-        "temperature": 0.5,  # the lowest the API allows
-        "max_completion_tokens": 12000,
-        "response_format": {"type": "json_schema", "json_schema": {"name": "read_view", "schema": SCHEMA, "strict": True}},
-    }
+    rule = ("The video is in English: leave `text_en` and `title_en` empty." if language == "English" else
+            f"The video is in {language}, so `text_en` and `title_en` are required: the English version of every `text` and `title`.")
+    return mercury.body(SYSTEM.format(language=language, english_rule=rule), payload, SCHEMA, "read_view", effort)
 
 
 def write(tl: Timeline, names: list[str], effort: str = "low", transport=None, attempt: int = 1) -> tuple[Summary, dict]:
     """Returns the summary and the call's stats (seconds, tokens, cost, attempts)."""
-    key = os.environ.get("INCEPTION_API_KEY")
-    if not key:
-        raise WriterError("no INCEPTION_API_KEY in .env (Mercury writes the summary)")
     if not tl.transcript:
         raise WriterError("no transcript to summarize")
     started = time.perf_counter()
-    with httpx.Client(timeout=180, transport=transport) as client:
-        r = None
-        for tries in range(3):  # a 5xx or a dropped connection is usually gone a moment later
-            try:
-                r = client.post(URL, json=request_body(tl, names, effort), headers={"Authorization": f"Bearer {key}"})
-            except httpx.HTTPError as e:
-                if tries == 2:
-                    raise WriterError(f"could not reach Mercury: {type(e).__name__}") from None
-                time.sleep(0.5 * (tries + 1))
-                continue
-            if r.status_code in (500, 502, 503, 504) and tries < 2:
-                time.sleep(0.5 * (tries + 1))
-                continue
-            break
-    if r.status_code != 200:
-        hint = {401: "the key was rejected; check INCEPTION_API_KEY", 402: "no Mercury credits left",
-                429: "Mercury is rate limited; wait a minute"}.get(r.status_code, r.text[:200])
-        raise WriterError(f"Mercury API error {r.status_code}: {hint}")
-    res = r.json()
+    try:
+        res = mercury.post(request_body(tl, names, effort), transport)
+    except mercury.MercuryError as e:
+        raise WriterError(str(e)) from None
     out = _read_output(res)
     summary = to_summary(out, tl) if out is not None else None
     if summary is None or not summary.sentences():
@@ -140,14 +109,7 @@ def write(tl: Timeline, names: list[str], effort: str = "low", transport=None, a
             stats["seconds"] = round(time.perf_counter() - started, 2)
             return summary, stats
         raise WriterError("Mercury returned no usable summary twice")
-    usage = res.get("usage") or {}
-    stats = {
-        "seconds": round(time.perf_counter() - started, 2),
-        "input_tokens": usage.get("prompt_tokens", 0),
-        "output_tokens": usage.get("completion_tokens", 0),
-        "attempts": attempt,
-    }
-    stats["cost_usd"] = round((stats["input_tokens"] * PRICE_PER_MTOK[0] + stats["output_tokens"] * PRICE_PER_MTOK[1]) / 1e6, 5)
+    stats = mercury.stats(res, started, attempt)
     return summary, stats
 
 

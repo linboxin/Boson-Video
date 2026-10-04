@@ -8,6 +8,8 @@ dependencies = [
     "httpx[http2]>=0.28",
     "numpy>=2.0",
     "pillow>=11.0",
+    "sherpa-onnx>=1.13.8",
+    "sherpa-onnx-core>=1.13.8",
     "typesafe-sdk>=0.7.2",
     "yt-dlp>=2026.8.19",
 ]

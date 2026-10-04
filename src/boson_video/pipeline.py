@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
 
-from . import audio, checker, local, scenes, speech, storyboard, writer, youtube
+from . import audio, checker, local, mercury, scenes, sensevoice, speech, storyboard, study, writer, youtube
 from .timeline import Timeline
 
 
@@ -74,7 +76,11 @@ def from_file(path: str) -> Timeline:
 
 
 def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio: bool = False) -> None:
-    """Fill in what was said: fetch the audio, cut it at pauses, transcribe the pieces at once."""
+    """Fill in what was said: fetch the audio, then transcribe it on this computer.
+
+    On a Mac, Apple's transcriber runs on pieces cut at pauses, all at once. Elsewhere
+    SenseVoice transcribes the stretches of speech its voice detector finds.
+    """
     clock = Stopwatch()
     folder.mkdir(parents=True, exist_ok=True)
     if tl.video.id:
@@ -83,32 +89,60 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     else:
         src = Path(tl.video.url)
     wav = audio.to_wav(src, folder / "audio16k.wav")
-    total = audio.duration(wav)
-    plan = audio.plan_pieces(total, audio.silences(wav), audio.piece_count(total))
-    pieces = audio.cut(wav, plan, folder)
-    clock.lap("audio prep")
     locale = locale or speech.guess_locale(tl.video.title)
-    speech.ensure(locale)
-    tl.transcript = speech.transcribe(pieces, locale)
+    if sys.platform == "darwin":
+        total = audio.duration(wav)
+        plan = audio.plan_pieces(total, audio.silences(wav), audio.piece_count(total))
+        pieces = audio.cut(wav, plan, folder)
+        clock.lap("audio prep")
+        speech.ensure(locale)
+        tl.transcript = speech.transcribe(pieces, locale)
+        tl.transcriber = "Apple SpeechAnalyzer"
+        clock.lap("speech")
+        for path, _ in pieces:
+            path.unlink(missing_ok=True)
+    else:
+        clock.lap("audio prep")
+        try:
+            tl.transcript, laps = sensevoice.transcribe(wav, locale)
+        except sensevoice.SenseVoiceError as e:
+            raise speech.SpeechError(str(e)) from None
+        tl.transcriber = "SenseVoice"
+        clock.laps.update(laps)
+        clock.last = time.perf_counter()
     tl.language = locale
-    clock.lap("speech")
-    for path, _ in pieces:
-        path.unlink(missing_ok=True)
     wav.unlink(missing_ok=True)
     tl.timings.update(clock.laps)
     tl.timings["words total"] = clock.total()
 
 
 def add_summary(tl: Timeline, effort: str = "low") -> dict:
-    """Write the read view's summary and sections (Mercury), then check every sentence (Jev)."""
+    """Write the summary, the English transcript and the glossary at once (Mercury), then check
+    every cited sentence (Jev). The summary is required; the other two are extras, so a failure
+    there is reported and the page goes on without it."""
     clock = Stopwatch()
     names = speech.names(tl.video.title, tl.video.channel, tl.video.description)
-    tl.summary, write_stats = writer.write(tl, names, effort)
-    clock.lap("write")
+    language = writer.language_name(tl.language)
+    extras: dict = {}
+    with ThreadPoolExecutor(3) as pool:
+        summary = pool.submit(writer.write, tl, names, effort)
+        english = pool.submit(study.translate, tl, names) if language != "English" else None
+        terms = pool.submit(study.glossary, tl, names, language)
+        tl.summary, write_stats = summary.result()
+        if language != "English":  # the writer sometimes skips the English; fill what's missing
+            write_stats["english_filled"] = study.fill_summary_english(tl, names)
+        clock.lap("write")
+        try:
+            if english:
+                tl.translation, extras["translate"] = english.result()
+            tl.terms, tl.questions, extras["glossary"] = terms.result()
+        except mercury.MercuryError as e:
+            extras["error"] = str(e)
+    clock.lap("study")
     check_stats = checker.check(tl)
     clock.lap("check")
     tl.timings.update(clock.laps)
-    return {"write": write_stats, "check": check_stats}
+    return {"write": write_stats, "check": check_stats, **extras}
 
 
 async def _warm(client: httpx.AsyncClient, video_id: str) -> None:

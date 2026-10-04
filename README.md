@@ -17,13 +17,14 @@ uv run boson-video ~/Movies/lecture.mp4
 uv run boson-video 9JKT5rBbrwM --lang zh_CN     # speech language; guessed from the title otherwise
 uv run boson-video 9JKT5rBbrwM --no-words       # scenes only
 uv run boson-video ask zjkBMFhNj_g "how much does it cost to train llama 2?"   # → 5:20
+uv run boson-video serve --open qbReD1cGykQ    # the page with the video beside it, and asking
 ```
 
 Each run writes `out/<video id>/index.html` (one self-contained file) and
 `timeline.json` (frames, scenes, chapters, heatmap, transcript and timings, for the
 stages that come next). The page is written twice: with the scenes, then with the words.
-The words need macOS 26 and Xcode's command line tools (Apple's on-device transcriber
-is built on first use). The summary needs `INCEPTION_API_KEY` (Mercury writes it) and
+The words use Apple's on-device transcriber on a Mac (macOS 26 and Xcode's command line
+tools; built on first use), and SenseVoice elsewhere (models in `~/.cache/boson-video/models`). The summary needs `INCEPTION_API_KEY` (Mercury writes it) and
 `TYPESAFE_API_KEY` (Jev checks it and answers `ask`) in `.env`.
 
 ## Measured
@@ -66,6 +67,17 @@ Is the check real? On the 美股频道 summary, ten sentences with one planted e
 for shorted, 740 → 640, 3.21 → 5.21, the US → China, a friend → himself…) were all
 caught, and the thirteen true ones all passed. Among real summaries the flags were mostly
 real slips, such as giving Ken Robinson's son's age to the son's girlfriend.
+
+### Learning from it (2026-10-04, Windows laptop, 12 threads, no GPU used)
+
+`boson-video serve --open <video>` shows the page with the video playing beside it. The
+transcript reads line by line with its English beneath; technical terms carry their English
+above the characters and open a plain explanation; the ask box answers in the language you
+ask in, citing the second, with general background kept apart. Questions are saved with the video.
+
+| Video | Words (SenseVoice, audio cached) | Summary, English transcript, glossary, checks | Cost | Asking |
+| --- | --- | --- | --- | --- |
+| 程序员老王, "llm abliteration是什么？" (Chinese, 11:35) | **10.0 s** for 88 passages | **18–22 s** from start; 13–16 terms; 21–22 of 22–23 summary sentences checked ✓ | $0.0015 | 2.3–2.8 s per question; 3 of 3 spot checks right, including "not in this video" |
 
 ## How it works
 

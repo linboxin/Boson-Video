@@ -56,7 +56,8 @@ The layout follows the kind of video (`scenes.profile` decides):
 | 1 | Map: link or file → scene timeline page | Done, 2026-09-24 | About 1 s; the 3 reference videos come out right |
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` (asking inside the page needs a server, so it comes with the extension) |
-| 4 | Layouts by kind of video | Next | Each kind renders its own layout |
+| 3b | Learn from it: the video beside the page, transcript line by line in English, terms glossed and explained, asking inside the page (`boson-video serve`), questions saved | In progress, 2026-10-04 | Works on `qbReD1cGykQ` (Chinese, 11:35) on Windows: words in 10 s with SenseVoice |
+| 4 | Layouts by kind of video | After 3b | Each kind renders its own layout |
 | 5 | A library of many videos, then the Chrome extension | | |
 
 ## Who does what
@@ -109,6 +110,11 @@ Accounts, a mobile app, live streams, sites other than YouTube.
   speech model. Test-video audio stays in `out/`, which git ignores.
 - 2026-10-02: summaries are written in the video's language, with a one-click switch to
   English.
+- 2026-10-04: product first. The owner learns from Chinese technical videos and needs the
+  terms explained and questions answered, so milestone 3b (learning) comes before layouts.
+  The bigger aim: a format any LLM can take a video in through (timeline.json today).
+- 2026-10-04: downloads approved for the Windows PC: ffmpeg (scoop), SenseVoice int8 and the
+  Silero voice detector (sherpa-onnx, about 165 MB in ~/.cache/boson-video/models).
 
 ## Facts to build on (checked 2026-09-24 to 2026-09-30)
 
@@ -128,5 +134,10 @@ Accounts, a mobile app, live streams, sites other than YouTube.
 - Mercury writes a 25-minute video's summary in about 5 s and a 1-hour one in about 9 s,
   for well under a cent; about one reply in ten has the wrong shape (a list, or empty), so
   the writer retries once. Jev checks a summary in under a second.
+- YouTube auto-dubs some videos: `qbReD1cGykQ` (Chinese) also offers an English dub, and
+  yt-dlp's `worstaudio` picked it. The audio format now asks for the track marked "original".
+- SenseVoice on a 12-thread Windows laptop (CPU): 11:35 of Mandarin in 10.0 s from cached
+  audio (model load 1.2 s, voice detection 6.7 s with decoding overlapped). Decoding one
+  stretch per thread beat batching (2.4 s against 4.1 s for 200 s of speech).
 - Jev is weak at numbers (it let "3.21" become "5.21"), so numbers are compared in code by
   value ("2 million" = 2000000, 1亿 = 一亿) against the cited passages and their neighbours.

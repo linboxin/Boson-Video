@@ -16,7 +16,9 @@ from pathlib import Path
 from .local import ffmpeg
 
 RATE = 16_000  # what speech models want; also small and fast to cut
-SPEECH_FORMAT = "worstaudio[acodec!=none]/bestaudio"  # speech needs little bitrate; small files arrive sooner
+# Speech needs little bitrate, and small files arrive sooner. YouTube now adds auto-dubbed
+# tracks (an English dub of a Chinese talk), so the track marked "original" comes first.
+SPEECH_FORMAT = "worstaudio[acodec!=none][format_note*=original]/worstaudio[acodec!=none]/bestaudio"
 SEAM_WINDOW = 20.0  # look this far (seconds) either side of an even split for a pause
 
 
@@ -40,10 +42,12 @@ def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
     # YouTube changes which formats it offers from one request to the next and
     # sometimes offers none, so one retry after a pause is worth it.
     for attempt in range(2):
-        done = subprocess.run(cmd, capture_output=True, text=True)
-        lines = done.stdout.strip().splitlines()
-        if done.returncode == 0 and lines:
-            return Path(lines[-1])
+        done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        # Find the file on disk rather than trusting the printed path: on Windows a
+        # non-ASCII folder name comes back garbled.
+        got = sorted(p for p in folder.glob("audio.*") if p.suffix not in (".wav", ".part"))
+        if done.returncode == 0 and got:
+            return got[0]
         if attempt == 0:
             time.sleep(2)
     raise AudioError(f"yt-dlp could not fetch the audio: {done.stderr.strip()[-300:]}")
@@ -53,7 +57,7 @@ def to_wav(src: Path, dst: Path) -> Path:
     """Any audio or video file -> 16 kHz mono 16-bit WAV."""
     cmd = [ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", str(src),
            "-vn", "-ac", "1", "-ar", str(RATE), "-sample_fmt", "s16", str(dst)]
-    done = subprocess.run(cmd, capture_output=True, text=True)
+    done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if done.returncode != 0:
         raise AudioError(f"ffmpeg could not read the audio of {src}: {done.stderr.strip()[-300:]}")
     return dst
@@ -68,7 +72,7 @@ def silences(wav: Path, noise_db: int = -35, min_len: float = 0.35) -> list[tupl
     """Pauses in the audio as (start, end) seconds."""
     cmd = [ffmpeg(), "-hide_banner", "-nostdin", "-i", str(wav),
            "-af", f"silencedetect=noise={noise_db}dB:d={min_len}", "-f", "null", "-"]
-    err = subprocess.run(cmd, capture_output=True, text=True).stderr
+    err = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace").stderr
     starts = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", err)]
     ends = [float(x) for x in re.findall(r"silence_end: (-?[\d.]+)", err)]
     return list(zip(starts, ends))

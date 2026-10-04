@@ -125,21 +125,27 @@ def repair_evidence(sentence: str, evidence: list[int], texts: list[str]) -> tup
 
 
 def check(tl: Timeline, concurrency: int = 16, client=None) -> dict:
-    """Fill in Sentence.check / check_p for the whole summary; returns counts and timing."""
+    """Fill in Sentence.check / check_p for the summary and the glossary; returns counts and timing."""
     if tl.summary is None:
         raise CheckError("nothing to check")
-    if client is None and not os.environ.get("TYPESAFE_API_KEY"):
-        raise CheckError("no TYPESAFE_API_KEY in .env (Jev checks the summary)")
-    started = time.perf_counter()
-    asyncio.run(_check_all(tl, concurrency, client))
-    counts: dict[str, int] = {}
-    for s in tl.summary.sentences():
-        counts[s.check] = counts.get(s.check, 0) + 1
+    stats = check_sentences(tl, tl.summary.sentences() + [t.said for t in tl.terms if t.said.text], concurrency, client)
     tl.summary.checker = "jev"
+    return stats
+
+
+def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 16, client=None) -> dict:
+    """Check any sentences that cite `tl.transcript` (summary lines, glossary lines, answers)."""
+    if client is None and not os.environ.get("TYPESAFE_API_KEY"):
+        raise CheckError("no TYPESAFE_API_KEY in .env (Jev checks every sentence)")
+    started = time.perf_counter()
+    asyncio.run(_check_all(tl, sentences, concurrency, client))
+    counts: dict[str, int] = {}
+    for s in sentences:
+        counts[s.check] = counts.get(s.check, 0) + 1
     return {"seconds": round(time.perf_counter() - started, 2), "counts": counts}
 
 
-async def _check_all(tl: Timeline, concurrency: int, client) -> None:
+async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, client) -> None:
     if client is None:
         from typesafe_sdk import AsyncTypeSafeClient
 
@@ -166,7 +172,7 @@ async def _check_all(tl: Timeline, concurrency: int, client) -> None:
             sentence.check, sentence.check_note = "unsupported", f"{', '.join(missing)} isn't in the cited passages"
 
     try:
-        await asyncio.gather(*(one(s) for s in tl.summary.sentences()))
+        await asyncio.gather(*(one(s) for s in sentences))
     except Exception as e:  # the SDK's errors carry the status and a hint
         raise CheckError(f"Jev could not check the summary: {str(e)[:200]}") from None
 

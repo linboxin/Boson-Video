@@ -9,6 +9,7 @@ browser.
 
 - `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--no-summary] [--lang zh_CN] [-o out]`
 - `uv run boson-video ask <video> "question"`: the moment that answers it (needs the page to exist)
+- `uv run boson-video serve [--open <video>]`: the pages on 127.0.0.1:8765 with the video playing beside them and a working ask box
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
 - `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
 
@@ -20,6 +21,10 @@ browser.
 - `audio.py`: yt-dlp audio download, 16 kHz WAV, pauses, cutting into pieces
 - `speech.py` + `bv_speech.swift`: Apple's on-device transcriber (macOS 26), built on first use into
   `~/Library/Caches/boson-video/`; pieces run at once; `names()` lists the video's own names for the writer
+- `sensevoice.py`: SenseVoice through sherpa-onnx, where Apple's transcriber isn't available (Windows, Linux)
+- `mercury.py`: the one Mercury client (strict JSON, retries, cost)
+- `study.py`: English for every passage, the glossary, and answers to questions (Jev finds, Mercury explains, Jev checks)
+- `server.py`: `boson-video serve`: library, pages, `/api/ask`, questions kept in `out/<id>/notes.json`
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: Mercury writes the summary and sections (strict JSON schema, every sentence cites passages, one retry)
 - `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired

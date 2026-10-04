@@ -124,6 +124,19 @@ class Summary:
 
 
 @dataclass
+class Term:
+    """A technical term a learner may not know, as the video uses it."""
+
+    heard: str  # exactly as it appears in the transcript (speech recognition may garble it)
+    term: str  # written correctly, as the video means it (e.g. 残差流, or "embedding")
+    en: str  # in English
+    reading: str  # pinyin for Chinese terms; empty otherwise
+    explain: str  # plain-English background for a non-expert; general knowledge, not from the video
+    said: Sentence  # what the video says about it, citing the passages (checked like the summary)
+    mentions: list[int] = field(default_factory=list)  # passages that contain `heard`
+
+
+@dataclass
 class Timeline:
     video: Video
     frames: list[Frame]
@@ -134,6 +147,10 @@ class Timeline:
     captions: list[CaptionTrack] = field(default_factory=list)
     language: str | None = None  # locale the speech was transcribed in, e.g. "zh_CN"
     transcript: list[Segment] = field(default_factory=list)
+    transcriber: str = ""  # "Apple SpeechAnalyzer" or "SenseVoice"
+    translation: list[str] = field(default_factory=list)  # English for each transcript passage
+    terms: list[Term] = field(default_factory=list)  # the glossary, in order of first mention
+    questions: list[str] = field(default_factory=list)  # questions a learner might ask, in English
     summary: Summary | None = None
     timings: dict[str, float] = field(default_factory=dict)  # milliseconds per stage
 
@@ -152,6 +169,10 @@ class Timeline:
             "captions": [asdict(c) for c in self.captions],
             "language": self.language,
             "transcript": [asdict(s) for s in self.transcript],
+            "transcriber": self.transcriber,
+            "translation": self.translation,
+            "terms": [asdict(t) for t in self.terms],
+            "questions": self.questions,
             "summary": asdict(self.summary) if self.summary else None,
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,

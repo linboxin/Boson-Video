@@ -65,14 +65,14 @@ def test_words_sit_in_their_scene_rows():
     assert "its audio transcribed on this Mac" in page
 
 
-def test_fast_cutting_puts_the_words_after_the_grid():
+def test_fast_cutting_leaves_the_words_to_the_transcript():
     tl = _timeline(n_scenes=36, gap=1.0)
     tl.language = "en_US"
     tl.transcript = [Segment(0, 3, "hello there")]
     page = render(tl)
-    assert "What&#x27;s said" in page or "What's said" in page
     html_part = page.split("<script>")[0]  # the words also travel in the page data for the ribbon and search
     assert html_part.count("hello there") == 1
+    assert 'id="p0"' in html_part  # in the transcript tab, not under the grid
 
 
 def test_summary_sentences_link_check_and_switch_language():
@@ -96,3 +96,30 @@ def test_summary_sentences_link_check_and_switch_language():
     assert 'class="mark ok"' in page and 'class="mark warn"' in page
     assert "1 of 3 sentences checked" in page
     assert 'id="q"' in page  # search over what was said
+
+
+def test_transcript_reads_side_by_side_with_terms_glossed():
+    from boson_video.timeline import Sentence, Term
+
+    tl = _timeline()
+    tl.language = "zh_CN"
+    tl.transcriber = "SenseVoice"
+    tl.transcript = [Segment(1, 5, "先通过 ibedding 转化"), Segment(21, 25, "每一层残差流 <b>"), Segment(26, 28, "残差流又来了")]
+    tl.translation = ["First through the embedding", "Each layer's residual stream", "The residual stream again"]
+    tl.terms = [
+        Term("ibedding", "embedding", "embedding", "", "Turns tokens into vectors.", Sentence("", "", []), [0]),
+        Term("残差流", "残差流", "residual stream", "cánchā liú", "The model's running state.",
+             Sentence("每层都写入残差流。", "Every layer writes to it.", [1], "supported", 0.9), [1, 2]),
+    ]
+    tl.questions = ["What is the residual stream?"]
+    page = render(tl)
+    html_part = page.split("<script>")[0]
+    assert 'class="lang-both"' in html_part and 'data-lang="both"' in html_part
+    assert '<p class="t-en" lang="en">Each layer&#x27;s residual stream</p>' in html_part
+    assert '每一层<ruby class="term" data-k="1"' in html_part and "<rt>residual stream</rt>" in html_part
+    assert "&lt;b&gt;" in html_part and "<b>" not in html_part
+    # a garbled English term is glossed with its real spelling
+    assert ">ibedding<rt>embedding</rt></ruby>" in html_part
+    assert 'id="term-1"' in html_part and "cánchā liú" in html_part and "said 2×" in html_part
+    assert "What is the residual stream?" in html_part and 'id="ask-form"' in html_part
+    assert "transcribed on this computer by SenseVoice" in html_part

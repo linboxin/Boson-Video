@@ -33,8 +33,13 @@ from .youtube import YouTubeError
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    for stream in (sys.stdout, sys.stderr):  # Chinese titles on a Windows console
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     if argv[:1] == ["ask"]:
         return ask_main(argv[1:])
+    if argv[:1] == ["serve"]:
+        return serve_main(argv[1:])
     ap = argparse.ArgumentParser(
         prog="boson-video",
         description="Read a video like a document: scenes in about a second, then the words.",
@@ -94,11 +99,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"boson-video: no summary: {e}", file=sys.stderr)
         return 1
     _write(tl, folder)
+    if "error" in stats:
+        print(f"boson-video: no translation or glossary: {stats['error']}", file=sys.stderr)
     s = tl.summary
-    counts = stats["check"]["counts"]
     print(f"summary ready in {time.perf_counter() - started:.2f} s: {len(s.sections)} sections, "
-          f"{len(s.sentences())} sentences, {counts.get('supported', 0)} checked ✓ "
-          f"({_stages(tl, 'write', 'check')}; {stats['write']['output_tokens']} tokens written, ${stats['write']['cost_usd']:.4f})")
+          f"{len(s.sentences())} sentences, {sum(x.check == 'supported' for x in s.sentences())} checked ✓ "
+          f"({_stages(tl, 'write', 'study', 'check')}; {stats['write']['output_tokens']} tokens written, ${stats['write']['cost_usd']:.4f})")
+    if tl.terms or tl.translation:
+        extra = sum(stats.get(k, {}).get("cost_usd", 0) for k in ("translate", "glossary"))
+        print(f"study ready: {len(tl.terms)} terms, {len(tl.translation) - tl.translation.count('')} passages "
+              f"in English (${extra:.4f})")
+    print(f"read it with questions: boson-video serve --open {tl.video.id or folder.name}")
     return 0
 
 
@@ -132,6 +143,34 @@ def ask_main(argv: list[str]) -> int:
         print(f"  {_clock(seg.start):>7}  {p:.2f}  {seg.text[:90]}")
     if found["moments"] and found["verdict"] != "not in this video":
         print(video.link(segments[found["moments"][0][0]].start))
+    return 0
+
+
+def serve_main(argv: list[str]) -> int:
+    """boson-video serve: the pages with the video playing beside them and a working ask box."""
+    from .server import serve
+
+    ap = argparse.ArgumentParser(prog="boson-video serve", description="Serve the pages on this computer, with asking.")
+    ap.add_argument("-o", "--out", default="out", help="output folder (default: ./out)")
+    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--open", metavar="VIDEO", nargs="?", const="", help="open the library, or one video, in the browser")
+    args = ap.parse_args(argv)
+    load_env()
+    httpd = serve(Path(args.out), args.port)
+    base = f"http://127.0.0.1:{args.port}/"
+    print(f"serving {Path(args.out).resolve()} at {base} (Ctrl+C stops)")
+    if args.open is not None:
+        target = base
+        if args.open:
+            try:
+                target += f"v/{youtube.parse_video_id(args.open)}/"
+            except YouTubeError:
+                target += f"v/{Path(args.open).stem}/"
+        webbrowser.open(target)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
     return 0
 
 
