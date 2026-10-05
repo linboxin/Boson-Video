@@ -109,7 +109,7 @@ Each needs a number we track; "today" is as of 2026-10-04.
 
 | Bar | Measured as | Today |
 | --- | --- | --- |
-| Faithful | Share of summary sentences that fail the check | 4 of 75 flagged on four videos (Apple transcripts), mostly real writer slips; 1 of 12 on `slFa9Vx3crw` (SenseVoice); planted errors caught 10 of 10, true sentences accepted 13 of 13 |
+| Faithful | Share of summary sentences that fail the check; the planted-error test (`scripts/planted_errors.py`) | 4 of 75 flagged on four videos (Apple transcripts), mostly real writer slips; 1 of 12 on `slFa9Vx3crw` (SenseVoice). Planted-error fixture, 28 cases on SenseVoice transcripts, mostly English claims (2026-10-04): Jev accepts 14 of 14 true and catches 13 of 14 planted (misses an entity swap, "Customer B" for A); code alone catches all 6 number and date errors and judges nothing else |
 | Complete | Chapter starts, "most replayed" peaks and points from human summaries that the page covers | Not measured (`slFa9Vx3crw`'s summary skipped its first 3½ minutes) |
 | Names and numbers right | Errors in names, tickers and figures | Names fixed by the writer from the video's own name list; numbers checked in code, including Chinese numerals as SenseVoice writes them |
 | Fast | Time to first view, time to full read view | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached) |
@@ -192,6 +192,10 @@ videos on our servers (bot checks and other people's rights).
   for well under a cent; about one reply in ten has the wrong shape (a list, a bare list of
   sections, or empty), so the writer retries once and accepts a bare list of sections.
   Jev checks a summary in about a second (once 10 s).
+- Asking Jev each question twice with the options reversed made no difference on the planted-error
+  fixture (13 of 14 caught either way); it is kept because it costs no wait and TypeSafe
+  recommends it. Numbers now match by the claim's precision: "468,532" exactly, "25.2" within
+  0.05, a rounded "6,000" within a thousand (a flat 1% let a planted 468,532 pass for 486,532).
 - Jev is weak at numbers (it let "3.21" become "5.21"), so numbers are compared in code by
   value ("2 million" = 2000000, 1亿 = 一亿, 十八点三 = 18.3) against the cited passages and
   their neighbours. Jev also leans toward the option listed first (TypeSafe's own list of

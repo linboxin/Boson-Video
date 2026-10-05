@@ -187,3 +187,19 @@ def test_a_year_read_digit_by_digit_doesnt_run_into_the_number_before_it():
     values = [v for _, v in checker._values(said)]
     assert 25.2 in values and 2024 in values and 24.2 in values and 2025 in values and 20.9 in values
     assert checker.missing_numbers("24.2% in 2024", [said]) == []
+
+
+def test_planted_errors_the_free_number_check_catches(monkeypatch):
+    """Offline half of scripts/planted_errors.py: without Jev, code must catch every changed
+    number or date and nothing else (it doesn't judge meaning)."""
+    from pathlib import Path
+
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    cases = json.loads((Path(__file__).parent / "fixtures" / "planted_errors.json").read_text(encoding="utf-8"))
+    for c in cases:
+        tl = _timeline(0)
+        tl.transcript = [Segment(k * 5.0, k * 5.0 + 4, t) for k, t in enumerate(c["passages"])]
+        s = Sentence(c["claim"], "", [1])
+        checker.check_sentences(tl, [s])
+        caught = s.check == "unsupported"
+        assert caught == (c["planted"] in ("number", "date")), c["claim"]

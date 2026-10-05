@@ -1,0 +1,366 @@
+[
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 27,
+  "claim": "Tesla delivered 486,532 electric vehicles.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "他们是四六四三九幺四十六万四千三百九十一辆",
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行"
+  ],
+  "at": 236.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 27,
+  "claim": "Tesla delivered 468,532 electric vehicles.",
+  "true": false,
+  "planted": "number",
+  "passages": [
+   "他们是四六四三九幺四十六万四千三百九十一辆",
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行"
+  ],
+  "at": 236.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 27,
+  "claim": "Tesla delivered more vehicles than the number before it.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "他们是四六四三九幺四十六万四千三百九十一辆",
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行"
+  ],
+  "at": 236.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 27,
+  "claim": "Tesla delivered fewer vehicles than the number before it.",
+  "true": false,
+  "planted": "direction",
+  "passages": [
+   "他们是四六四三九幺四十六万四千三百九十一辆",
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行"
+  ],
+  "at": 236.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 28,
+  "claim": "Energy storage deployment was 13.7 GWh, and the earnings report is on October 21.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行",
+   "财报还没进行交互数字呢每次都是在季度"
+  ],
+  "at": 244.3
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 28,
+  "claim": "Energy storage deployment was 13.7 GWh, and the earnings report is on October 12.",
+  "true": false,
+  "planted": "date",
+  "passages": [
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行",
+   "财报还没进行交互数字呢每次都是在季度"
+  ],
+  "at": 244.3
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 252,
+  "claim": "Customer A's share fell from 25.2% in 2023 to 20.9% in 2025.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "除了 custmer A",
+   "他在二零二三年占据了百分之二十五点二二零二四年二十四点二二零二五年二十点九所以呢逐年降低但依然",
+   "二零二五年是"
+  ],
+  "at": 1495.4
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 252,
+  "claim": "Customer A's share rose from 20.9% in 2023 to 25.2% in 2025.",
+  "true": false,
+  "planted": "direction",
+  "passages": [
+   "除了 custmer A",
+   "他在二零二三年占据了百分之二十五点二二零二四年二十四点二二零二五年二十点九所以呢逐年降低但依然",
+   "二零二五年是"
+  ],
+  "at": 1495.4
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 252,
+  "claim": "Customer B's share fell from 25.2% in 2023 to 20.9% in 2025.",
+  "true": false,
+  "planted": "entity",
+  "passages": [
+   "除了 custmer A",
+   "他在二零二三年占据了百分之二十五点二二零二四年二十四点二二零二五年二十点九所以呢逐年降低但依然",
+   "二零二五年是"
+  ],
+  "at": 1495.4
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 258,
+  "claim": "In Q2 2026 the share was 18.3%.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "马斯克和 pamer laucke 他们两个入驻美国战争部也就是以前的国防部想参与一些事务这国防部这几个重要的部门吧就是这些美国政府的构成部分也就是 comer A",
+   "这个百分比二零二六年二季度是什么数字呢右图啊百分之十八点三",
+   "所以从几年前百分之二十五点二降到了现在的百分之十八点三"
+  ],
+  "at": 1538.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 278,
+  "claim": "US government revenue is forecast to fall to about 5% in Q4 2026.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "这就是大大的降低了",
+   "而如果只预计二零二六年四季度单季度的占比美国政府的收入会进一步减少到只占百分之五也就是说二零二七年这个数字大概率是要低于百分之五了啊因为单季度二零二六年最后一个季度是",
+   "百分之五嘛那明年全年肯定是少于百分之五了所以从二零二四年百分之二十二零二五年百分之二十到二零二六年百分之十到二零二七年百分之五每一年都是"
+  ],
+  "at": 1636.7
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 278,
+  "claim": "US government revenue is forecast to fall to about 15% in Q4 2026.",
+  "true": false,
+  "planted": "number",
+  "passages": [
+   "这就是大大的降低了",
+   "而如果只预计二零二六年四季度单季度的占比美国政府的收入会进一步减少到只占百分之五也就是说二零二七年这个数字大概率是要低于百分之五了啊因为单季度二零二六年最后一个季度是",
+   "百分之五嘛那明年全年肯定是少于百分之五了所以从二零二四年百分之二十二零二五年百分之二十到二零二六年百分之十到二零二七年百分之五每一年都是"
+  ],
+  "at": 1636.7
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 151,
+  "claim": "The previous chip peak was between $148 and $151.8.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "那么截止我发文的当天 spius 股价一四八略低于二十 M A 一四九点七市值一点九五万亿美元",
+   "上期来筹码峰最高点在一四八到一五一点八这个接近三块钱的小的区间",
+   "具体怎么回事呢就看一下右边的筹码峰嘛一直有朋友在问啊这个筹码峰是通过 traiding view 来看的那么我也是向其他博主拿的一个呃免费的这个链接他们做好的我只是订阅了 trading viw 啊然后呢就可以看可以看到"
+  ],
+  "at": 989.1
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 151,
+  "claim": "The previous chip peak was between $158 and $161.8.",
+  "true": false,
+  "planted": "number",
+  "passages": [
+   "那么截止我发文的当天 spius 股价一四八略低于二十 M A 一四九点七市值一点九五万亿美元",
+   "上期来筹码峰最高点在一四八到一五一点八这个接近三块钱的小的区间",
+   "具体怎么回事呢就看一下右边的筹码峰嘛一直有朋友在问啊这个筹码峰是通过 traiding view 来看的那么我也是向其他博主拿的一个呃免费的这个链接他们做好的我只是订阅了 trading viw 啊然后呢就可以看可以看到"
+  ],
+  "at": 989.1
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 27,
+  "claim": "特斯拉交付了四十八万六千五百三十二辆电动车。",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "他们是四六四三九幺四十六万四千三百九十一辆",
+   "电动车而在交付方面呢比这个数字多一些是四十八万六千五百三十二辆电动车",
+   "而 energy storage deployment 储能业务呢是十三点七及瓦时公司的财报将会在十月二十一号进行"
+  ],
+  "at": 236.5
+ },
+ {
+  "video": "slFa9Vx3crw",
+  "cited": 252,
+  "claim": "客户A的占比逐年上升。",
+  "true": false,
+  "planted": "direction",
+  "passages": [
+   "除了 custmer A",
+   "他在二零二三年占据了百分之二十五点二二零二四年二十四点二二零二五年二十点九所以呢逐年降低但依然",
+   "二零二五年是"
+  ],
+  "at": 1495.4
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 38,
+  "claim": "Each group has 128 questions.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "那么要如何找到这个方向呢研究人员准备了两组提示词有害组和无害组",
+   "每组一百二十八个问题",
+   "有害组中都是一些天崩的问题像是怎么制作一个炸弹所有模型在默认的情况下都会拒绝回答"
+  ],
+  "at": 273.5
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 38,
+  "claim": "Each group has 256 questions.",
+  "true": false,
+  "planted": "number",
+  "passages": [
+   "那么要如何找到这个方向呢研究人员准备了两组提示词有害组和无害组",
+   "每组一百二十八个问题",
+   "有害组中都是一些天崩的问题像是怎么制作一个炸弹所有模型在默认的情况下都会拒绝回答"
+  ],
+  "at": 273.5
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 39,
+  "claim": "By default, all models refuse the harmful questions, such as how to make a bomb.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "每组一百二十八个问题",
+   "有害组中都是一些天崩的问题像是怎么制作一个炸弹所有模型在默认的情况下都会拒绝回答",
+   "胡亥祖就是一些普通小清新的问题模型都不会拒绝"
+  ],
+  "at": 275.6
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 39,
+  "claim": "By default, all models answer the harmful questions, such as how to make a bomb.",
+  "true": false,
+  "planted": "negation",
+  "passages": [
+   "每组一百二十八个问题",
+   "有害组中都是一些天崩的问题像是怎么制作一个炸弹所有模型在默认的情况下都会拒绝回答",
+   "胡亥祖就是一些普通小清新的问题模型都不会拒绝"
+  ],
+  "at": 275.6
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 42,
+  "claim": "They record the residual stream at every layer when the last token of the prompt enters the model.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "然后研究人员把所有提示词一条一条的放入模型进行推理",
+   "记下提示词最后一个 TO 进入模型后模型中每一层残差流的数值",
+   "但这里所说的最后一个 token 并不是怎么制作一个炸弹中的问号因为提示词在进入模型之前人们通常还会添加一些用作标记的 token"
+  ],
+  "at": 294.7
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 42,
+  "claim": "They record the residual stream at every layer when the first token of the prompt enters the model.",
+  "true": false,
+  "planted": "detail",
+  "passages": [
+   "然后研究人员把所有提示词一条一条的放入模型进行推理",
+   "记下提示词最后一个 TO 进入模型后模型中每一层残差流的数值",
+   "但这里所说的最后一个 token 并不是怎么制作一个炸弹中的问号因为提示词在进入模型之前人们通常还会添加一些用作标记的 token"
+  ],
+  "at": 294.7
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 74,
+  "claim": "KL divergence quantifies the gap between the two models' outputs; a bigger gap gives a bigger result.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "同一个无害问题分别使用普通模型和删掉拒绝方向后的模型跑一次看看下一个字的概率分布有多大差距",
+   "这个差距用一个叫做 K L 散多的公式来量化两个模型输出差距越大公式计算出来的结果也就越大",
+   "差的太多的方向就会被直接淘汰有兴趣的同学可以从视频最后的参考文献中找到原文"
+  ],
+  "at": 548.8
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 74,
+  "claim": "KL divergence quantifies the gap between the two models' outputs; a bigger gap gives a smaller result.",
+  "true": false,
+  "planted": "direction",
+  "passages": [
+   "同一个无害问题分别使用普通模型和删掉拒绝方向后的模型跑一次看看下一个字的概率分布有多大差距",
+   "这个差距用一个叫做 K L 散多的公式来量化两个模型输出差距越大公式计算出来的结果也就越大",
+   "差的太多的方向就会被直接淘汰有兴趣的同学可以从视频最后的参考文献中找到原文"
+  ],
+  "at": 548.8
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 47,
+  "claim": "With 32 layers they record 32 residuals, each an array of 4096 numbers.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "不同开源模型添加 token 的方式都不太一样有的在 assistan 的前后还会添加好几个标记后面要讲的处理研究人员在这几个位置上都做了一遍这里为了简单我们只看最后一个 assistant",
+   "总之我们记一下的就是相当于 assistant 的这个 token 进入模型时每一层残差产生的数值假如模型有三十二层我们就记录三十二个残差也就是三十二个四零九六大小的数组",
+   "选择这个位置是因为模型在这里刚刚读完用户的问题正要开口说话要不要拒绝的决定已经形成了就蕴含在这三十二个残差之中"
+  ],
+  "at": 338.0
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 47,
+  "claim": "With 32 layers they record 16 residuals, each an array of 4096 numbers.",
+  "true": false,
+  "planted": "number",
+  "passages": [
+   "不同开源模型添加 token 的方式都不太一样有的在 assistan 的前后还会添加好几个标记后面要讲的处理研究人员在这几个位置上都做了一遍这里为了简单我们只看最后一个 assistant",
+   "总之我们记一下的就是相当于 assistant 的这个 token 进入模型时每一层残差产生的数值假如模型有三十二层我们就记录三十二个残差也就是三十二个四零九六大小的数组",
+   "选择这个位置是因为模型在这里刚刚读完用户的问题正要开口说话要不要拒绝的决定已经形成了就蕴含在这三十二个残差之中"
+  ],
+  "at": 338.0
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 72,
+  "claim": "Removing a direction can stop refusals but make the model talk nonsense.",
+  "true": true,
+  "planted": "",
+  "passages": [
+   "把这个方向加到无害的问题上模型得开始拒绝才算数",
+   "不过有一点需要注意一下还有一个极端的情况就是可能删掉了某个方向之后模型虽然不再拒绝了但一下子变成大傻子开始胡说八道了所以实验人员还设计了另一套检测机制",
+   "同一个无害问题分别使用普通模型和删掉拒绝方向后的模型跑一次看看下一个字的概率分布有多大差距"
+  ],
+  "at": 523.0
+ },
+ {
+  "video": "qbReD1cGykQ",
+  "cited": 72,
+  "claim": "Removing a direction always keeps the model's answers sensible.",
+  "true": false,
+  "planted": "contradiction",
+  "passages": [
+   "把这个方向加到无害的问题上模型得开始拒绝才算数",
+   "不过有一点需要注意一下还有一个极端的情况就是可能删掉了某个方向之后模型虽然不再拒绝了但一下子变成大傻子开始胡说八道了所以实验人员还设计了另一套检测机制",
+   "同一个无害问题分别使用普通模型和删掉拒绝方向后的模型跑一次看看下一个字的概率分布有多大差距"
+  ],
+  "at": 523.0
+ }
+]

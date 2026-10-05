@@ -106,6 +106,25 @@ def _values(text: str) -> list[tuple[str, float]]:
     return out
 
 
+def tolerance(written: str, value: float) -> float:
+    """How far a said number may be from the claim's and still match, by how precisely the claim
+    writes it: "468,532" must match exactly (a planted 468,532 passed for 486,532 under a flat 1%,
+    2026-10-04), "25.2" within 0.05, "2 million" within half a million, and a rounded "6,000"
+    within a thousand. Chinese numerals in a claim get half a percent."""
+    m = re.match(r"(\d[\d,]*)(?:\.(\d+))?", written)
+    if not m:
+        return 0.005 * abs(value) + 1e-9
+    whole, fraction = m.group(1).replace(",", ""), m.group(2)
+    mantissa = float(whole + ("." + fraction if fraction else ""))
+    scale = value / mantissa if mantissa else 1.0  # "2 million" -> 1e6
+    if fraction:
+        return 0.5 * 10 ** -len(fraction) * scale + 1e-9
+    zeros = len(whole) - len(whole.rstrip("0")) if whole.strip("0") else 0
+    if zeros >= 3:  # "6,000": a rounded figure, so a whole unit either way ("100" stays exact)
+        return 10 ** zeros * scale + 1e-9
+    return 0.5 * scale + 1e-9
+
+
 def missing_numbers(sentence: str, passages: list[str], strict: bool = False) -> list[str]:
     """Numbers in the sentence that its passages never say, compared by value ("2 million" = 2000000).
 
@@ -126,7 +145,7 @@ def missing_numbers(sentence: str, passages: list[str], strict: bool = False) ->
             glued |= {i, i + 1}
     missing = []
     for i, (written, value) in enumerate(numbers):
-        if i in glued or any(abs(value - v) <= 0.01 * max(abs(v), 1e-9) for v in said_values):
+        if i in glued or any(abs(value - v) <= tolerance(written, value) for v in said_values):
             continue
         if len(bares[i]) >= 2 and bares[i] in digit_runs:
             continue  # part of a longer glued number
