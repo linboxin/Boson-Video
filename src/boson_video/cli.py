@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv[:1] == ["mcp"]:
         from .mcp_server import main as mcp_main  # the plugin; stdout carries the protocol
 
-        mcp_main()
+        mcp_main(argv[1:])
         return 0
     ap = argparse.ArgumentParser(
         prog="boson-video",

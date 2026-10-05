@@ -105,11 +105,46 @@ def video_list() -> str:
     return plugin.videos()
 
 
-def main() -> None:
+def remote_token() -> str:
+    """The secret part of the remote address, made once and kept with the videos. Anyone with the
+    full address can use the tools (and download videos from this computer), so it is long and random."""
+    from . import library
+
+    path = library.home() / "remote-token"
+    if not path.exists():
+        import secrets
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(secrets.token_urlsafe(24), encoding="utf-8")
+    return path.read_text(encoding="utf-8").strip()
+
+
+def main(argv: list[str] | None = None) -> None:
+    """stdio (default) for apps that start the plugin themselves (Claude Code, Claude Desktop, Cursor);
+    --http [--port N] for apps that reach it at an address (ChatGPT, claude.ai, Grok), through a tunnel."""
+    import argparse
+
+    ap = argparse.ArgumentParser(prog="boson-video mcp")
+    ap.add_argument("--http", action="store_true", help="serve over Streamable HTTP on 127.0.0.1 instead of stdio")
+    ap.add_argument("--port", type=int, default=8766)
+    args = ap.parse_args(argv or [])
     load_env()
     for name in ("httpx", "httpcore", "typesafe_sdk", "typesafe"):  # request lines would flood the app's log
         logging.getLogger(name).setLevel(logging.WARNING)
-    server.run("stdio")
+    if not args.http:
+        server.run("stdio")
+        return
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    path = f"/mcp/{remote_token()}"
+    print(f"boson-video plugin over HTTP: http://127.0.0.1:{args.port}{path}", flush=True)
+    print(f"to reach it from ChatGPT, claude.ai or Grok, expose port {args.port} with a tunnel, e.g.\n"
+          f"  cloudflared tunnel --url http://127.0.0.1:{args.port}\n"
+          f"and give the app https://<the tunnel's address>{path}", flush=True)
+    # Requests arrive through the tunnel under its hostname, so the Host check is off; the random
+    # path is what keeps strangers out, and the server listens only on this computer.
+    server.run("streamable-http", host="127.0.0.1", port=args.port, streamable_http_path=path,
+               transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
 
 if __name__ == "__main__":
