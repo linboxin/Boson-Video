@@ -69,7 +69,7 @@ def make_handler(root: Path):
             url = urlparse(self.path)
             parts = [p for p in url.path.split("/") if p]
             if not parts:
-                return self._send(200, library(root).encode(), "text/html; charset=utf-8")
+                return self._send(200, library_page(root).encode(), "text/html; charset=utf-8")
             if parts[0] == "v" and len(parts) == 2 and (folder := self._folder(parts[1])):
                 if not url.path.endswith("/"):
                     self.send_response(301)
@@ -99,6 +99,8 @@ def make_handler(root: Path):
                 result = study.answer(load(folder), question)
             except study.StudyError as e:
                 return self._json(502, {"error": str(e)})
+            except Exception as e:  # anything else still answers, so the page can say what went wrong
+                return self._json(500, {"error": f"{type(e).__name__}: {str(e)[:200]}"})
             with _lock:
                 kept = notes(folder)
                 kept.insert(0, result)
@@ -108,7 +110,7 @@ def make_handler(root: Path):
     return Handler
 
 
-def library(root: Path) -> str:
+def library_page(root: Path) -> str:
     """Every video built so far, newest first."""
     rows = []
     for tj in sorted(root.glob("*/timeline.json"), key=lambda p: p.stat().st_mtime, reverse=True):

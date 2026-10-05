@@ -258,3 +258,34 @@ def test_an_id_starting_with_a_dash_is_not_an_option(home, monkeypatch):
     cli.main(["ask", "-Ggc37xLj_Y", "what is coverage?"])
     assert seen["argv"][0] == "https://www.youtube.com/watch?v=-Ggc37xLj_Y"
     assert library.key(seen["argv"][0]) == "-Ggc37xLj_Y"
+
+
+def test_the_page_answers_a_question_end_to_end(home, monkeypatch):
+    """A real request through the page server: it loads the video and answers (the answer step faked)."""
+    import threading
+    import urllib.request
+
+    from boson_video import server, study
+
+    library.save(_tl(), library.folder("abcdefghijk"))
+    seen = {}
+
+    def fake_answer(tl, question):
+        seen["passages"] = len(tl.transcript)
+        return {"question": question, "verdict": "answered", "moments": [], "answer": [], "background": [],
+                "seconds": 0.1, "cost_usd": 0, "asked": "now"}
+
+    monkeypatch.setattr(study, "answer", fake_answer)
+    httpd = server.serve(home, port=0)
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/ask", json.dumps({"v": "abcdefghijk", "q": "what?"}).encode(),
+                                     {"Content-Type": "application/json"})
+        reply = json.load(urllib.request.urlopen(req, timeout=10))
+        assert reply["verdict"] == "answered" and seen["passages"] == 4
+        notes = json.load(urllib.request.urlopen(f"http://127.0.0.1:{port}/api/notes?v=abcdefghijk", timeout=10))
+        assert notes[0]["question"] == "what?"
+        assert "Your videos" in urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10).read().decode()
+    finally:
+        httpd.shutdown()
