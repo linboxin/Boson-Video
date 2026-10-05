@@ -28,6 +28,10 @@ RELATION = {
         "says_nothing": "The passages do not address what the claim asserts, either way",
     },
 }
+# jev-1.13 leans toward the option listed first (TypeSafe's list of its weaknesses), and
+# "supports" comes first above. The same question goes out a second time, in the same request,
+# with the options reversed, and the two answers are averaged.
+RELATION_REVERSED = {**RELATION, "criteria": dict(reversed(list(RELATION["criteria"].items())))}
 
 
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
@@ -69,8 +73,14 @@ def _cn_value(text: str) -> int | None:
     return value if value > 0 else None
 
 
+# Speech recognition writes no punctuation, so a year read digit by digit runs into the number
+# before it: 百分之二十五点二二零二四年 is 25.2 then 2024, not 25.22024. Split the year off.
+_RUN_ON_YEAR = re.compile(r"(?<=[点零〇幺一二两三四五六七八九十])([一二][零〇九][零〇一二三四五六七八九]{2}年)")
+
+
 def _values(text: str) -> list[tuple[str, float]]:
     """(as written, value) for every number in the text, scale words applied."""
+    text = _RUN_ON_YEAR.sub(r" \1", text)
     out = []
     for m in _SCALED.finditer(text):
         try:
@@ -96,12 +106,17 @@ def _values(text: str) -> list[tuple[str, float]]:
     return out
 
 
-def missing_numbers(sentence: str, passages: list[str]) -> list[str]:
-    """Numbers in the sentence that its passages never say, compared by value ("2 million" = 2000000)."""
+def missing_numbers(sentence: str, passages: list[str], strict: bool = False) -> list[str]:
+    """Numbers in the sentence that its passages never say, compared by value ("2 million" = 2000000).
+
+    When the passages state no numbers at all, nothing is compared and nothing is missing, unless
+    `strict`: then every number is missing. Strict is for checks where nothing else judges the
+    sentence (no Jev key), so "the passages hold no numbers" can't read as "the numbers are there".
+    """
     said = " ".join(passages)
     said_values = [v for _, v in _values(said)]
     if not said_values:
-        return []  # the passages state no numbers at all; nothing to compare
+        return [w for w, _ in _values(sentence) if re.search(r"\d", w)] if strict else []
     digit_runs = re.sub(r"[^\d]+", " ", said.replace(",", ""))
     numbers = [(w, v) for w, v in _values(sentence) if re.search(r"\d", w)]
     bares = [(_NUMBER.match(w).group(0).replace(",", "") if _NUMBER.match(w) else "") for w, _ in numbers]
@@ -123,10 +138,10 @@ class CheckError(RuntimeError):
     pass
 
 
-def repair_evidence(sentence: str, evidence: list[int], texts: list[str]) -> tuple[list[int], list[str]]:
+def repair_evidence(sentence: str, evidence: list[int], texts: list[str], strict: bool = False) -> tuple[list[int], list[str]]:
     """Add neighbouring passages that hold the sentence's numbers; return (evidence, still missing)."""
     window = sorted({j for i in evidence for j in (i - 1, i, i + 1) if 0 <= j < len(texts)})
-    missing = missing_numbers(sentence, [texts[i] for i in window])
+    missing = missing_numbers(sentence, [texts[i] for i in window], strict)
     numbers = [w for w, _ in _values(sentence) if re.search(r"\d", w)]
     extra = {
         j for j in window
@@ -140,20 +155,46 @@ def check(tl: Timeline, concurrency: int = 16, client=None) -> dict:
     if tl.summary is None:
         raise CheckError("nothing to check")
     stats = check_sentences(tl, tl.summary.sentences() + [t.said for t in tl.terms if t.said.text], concurrency, client)
-    tl.summary.checker = "jev"
+    tl.summary.checker = stats["checked_by"]
     return stats
 
 
+def jev_available(client=None) -> bool:
+    return client is not None or bool(os.environ.get("TYPESAFE_API_KEY"))
+
+
 def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 16, client=None) -> dict:
-    """Check any sentences that cite `tl.transcript` (summary lines, glossary lines, answers)."""
-    if client is None and not os.environ.get("TYPESAFE_API_KEY"):
-        raise CheckError("no TYPESAFE_API_KEY in .env (Jev checks every sentence)")
+    """Check any sentences that cite `tl.transcript` (summary lines, glossary lines, answers).
+
+    With Jev: Jev judges the meaning and code checks the numbers ("jev+code"). Without a key:
+    code checks the numbers only ("code"); a sentence whose numbers are all there is left
+    unchecked rather than marked as supported, because nothing judged its meaning.
+    """
     started = time.perf_counter()
-    asyncio.run(_check_all(tl, sentences, concurrency, client))
+    if jev_available(client):
+        asyncio.run(_check_all(tl, sentences, concurrency, client))
+        checked_by = "jev+code"
+    else:
+        texts = [seg.text for seg in tl.transcript]
+        for s in sentences:
+            if not s.evidence:
+                s.check, s.check_p = "uncited", 1.0
+                continue
+            s.evidence, missing = repair_evidence(s.text, s.evidence, texts, strict=True)
+            if missing:
+                s.check, s.check_p, s.check_note = "unsupported", 1.0, f"{', '.join(missing)} isn't in the cited passages"
+        checked_by = "code"
     counts: dict[str, int] = {}
     for s in sentences:
         counts[s.check] = counts.get(s.check, 0) + 1
-    return {"seconds": round(time.perf_counter() - started, 2), "counts": counts}
+    return {"seconds": round(time.perf_counter() - started, 2), "counts": counts, "checked_by": checked_by}
+
+
+def both_orders(res, name: str) -> dict[str, float]:
+    """Average a Choice's probabilities over its two orders (`name`, `name_r`); one if only one came back."""
+    answers = [res.choices[k].probabilities for k in (name, name + "_r") if k in res.choices]
+    labels = set().union(*answers)
+    return {label: sum(float(a.get(label, 0.0)) for a in answers) / len(answers) for label in labels}
 
 
 async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, client) -> None:
@@ -175,10 +216,11 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
             "passages": [f"[{_clock(tl.transcript[i].start)}] {tl.transcript[i].text}" for i in around],
         }
         async with gate:
-            res = await client.system_one(state, {"relation": RELATION})
-        answer = res.choices["relation"]
-        sentence.check = VERDICTS[answer.choice]
-        sentence.check_p = round(float(answer.probabilities[answer.choice]), 3)
+            res = await client.system_one(state, {"relation": RELATION, "relation_r": RELATION_REVERSED})
+        probs = both_orders(res, "relation")
+        choice = max(probs, key=probs.get)
+        sentence.check = VERDICTS[choice]
+        sentence.check_p = round(probs[choice], 3)
         if missing and sentence.check == "supported":
             sentence.check, sentence.check_note = "unsupported", f"{', '.join(missing)} isn't in the cited passages"
 

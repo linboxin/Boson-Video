@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+FORMAT = "boson-video.timeline"
+VERSION = 1  # bump when a field changes meaning or goes away; adding fields keeps the version
+
 
 @dataclass
 class Video:
@@ -159,8 +162,10 @@ class Timeline:
         return [s for s in self.transcript if start <= (s.start + s.end) / 2 < end]
 
     def to_json(self) -> dict:
-        """Everything except the image bytes, for the stages that come next."""
+        """Everything except the image bytes, for the stages that come next (docs/timeline-format.md)."""
         return {
+            "format": FORMAT,
+            "version": VERSION,
             "video": asdict(self.video),
             "frames": [asdict(f) for f in self.frames],
             "scenes": [asdict(s) for s in self.scenes],
@@ -177,3 +182,38 @@ class Timeline:
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,
         }
+
+    @classmethod
+    def from_json(cls, data: dict, sheets: list[Sheet] | None = None) -> "Timeline":
+        """The inverse of to_json; the sheets' image bytes travel separately (library.py)."""
+        if data.get("version", 1) > VERSION:
+            raise ValueError(f"timeline.json version {data['version']} is newer than this boson-video ({VERSION})")
+
+        def sentence(d: dict) -> Sentence:
+            return Sentence(**d)
+
+        summary = None
+        if data.get("summary"):
+            s = data["summary"]
+            summary = Summary(
+                tldr=[sentence(x) for x in s["tldr"]],
+                sections=[Section(**{**sec, "sentences": [sentence(x) for x in sec["sentences"]]}) for sec in s["sections"]],
+                writer=s.get("writer", ""), checker=s.get("checker", ""),
+            )
+        return cls(
+            video=Video(**data["video"]),
+            frames=[Frame(**f) for f in data.get("frames", [])],
+            sheets=sheets or [],
+            scenes=[Scene(**s) for s in data.get("scenes", [])],
+            chapters=[Chapter(**c) for c in data.get("chapters", [])],
+            heat=[HeatPoint(**h) for h in data.get("heat", [])],
+            captions=[CaptionTrack(**c) for c in data.get("captions", [])],
+            language=data.get("language"),
+            transcript=[Segment(**s) for s in data.get("transcript", [])],
+            transcriber=data.get("transcriber", ""),
+            translation=data.get("translation", []),
+            terms=[Term(**{**t, "said": sentence(t["said"])}) for t in data.get("terms", [])],
+            questions=data.get("questions", []),
+            summary=summary,
+            timings=data.get("timings_ms", {}),
+        )

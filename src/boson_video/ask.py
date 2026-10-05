@@ -12,6 +12,7 @@ import asyncio
 import os
 import time
 
+from .checker import both_orders
 from .timeline import Segment
 
 MAX_OPTIONS = 255
@@ -45,12 +46,16 @@ def _document(segments: list[Segment], ids: list[int], windows: bool = False) ->
 
 
 def _questions(question: str, options: list[str], unit: str) -> dict:
+    where = {
+        "type": "choice",
+        "instructions": f'Which {unit} of the transcript contains the answer to: "{question}"?',
+        "criteria": {o: None for o in options},
+    }
     return {
-        "where": {
-            "type": "choice",
-            "instructions": f'Which {unit} of the transcript contains the answer to: "{question}"?',
-            "criteria": {o: None for o in options},
-        },
+        "where": where,
+        # jev-1.13 leans toward the option listed first, which here is the start of the video;
+        # the same choice in reverse order, averaged with the first, cancels the lean.
+        "where_r": {**where, "criteria": {o: None for o in reversed(options)}},
         "exists": {
             "type": "noul",
             "instructions": f'Does any part of the transcript address or answer: "{question}"?',
@@ -90,11 +95,11 @@ async def _ask(segments: list[Segment], question: str, top: int, client) -> dict
         res = await client.system_one(_document(segments, everything, windows=True),
                                       _questions(question, options, "window (##)"))
         exists = res.nouls["exists"].noul
-        probs = res.choices["where"].probabilities
+        probs = both_orders(res, "where")
         best = sorted(range(n_windows), key=lambda w: probs.get(f"W{w:03d}", 0.0), reverse=True)[:2]
         candidates = sorted(i for w in best for i in range(w * WINDOW, min((w + 1) * WINDOW, len(segments))))
     res = await client.system_one(_document(segments, candidates), _questions(question, [_pid(i) for i in candidates], "passage"))
-    probs = res.choices["where"].probabilities
+    probs = both_orders(res, "where")
     ranked = sorted(candidates, key=lambda i: probs.get(_pid(i), 0.0), reverse=True)[:top]
     return {
         "exists": res.nouls["exists"].noul if exists is None else max(exists, res.nouls["exists"].noul),

@@ -74,7 +74,7 @@ Three layers, each with one job:
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
-| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | In progress, 2026-10-04 | Works from Claude Code and Cursor on `qbReD1cGykQ`, `slFa9Vx3crw` and `zjkBMFhNj_g` with no keys; with a Jev key, checks come from Jev and say so |
+| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Built, 2026-10-04; open: English off the Mac, Cursor | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, words at 47 s, but SenseVoice's English is unusable (needs another model). Cursor not tried yet |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | Next | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Needs the OCR model download | Slide text of `zjkBMFhNj_g` right on 20 hand-checked slides; SenseVoice's error rate measured against burned-in subtitles |
 | 7 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
@@ -115,7 +115,7 @@ Each needs a number we track; "today" is as of 2026-10-04.
 | Fast | Time to first view, time to full read view | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached) |
 | Findable | Ask lands within 10 s of the right moment | 7 of 7 spot checks right, including "not in this video" |
 | Sees the screen | Numbers and code read from full-resolution frames | Slide titles only |
-| Works without keys | What the plugin and page give with no `.env` | Not yet: the pipeline stops after the words |
+| Works without keys | What the plugin and page give with no `.env` | The plugin works fully (its AI writes); the page has scenes, words and search; checks fall back to numbers in code and say so |
 
 ## Research directions
 
@@ -204,5 +204,15 @@ videos on our servers (bot checks and other people's rights).
   the allowed route.
 - A transcript costs roughly 14k tokens per hour per language as compact lines (estimate,
   not Claude's tokenizer); Gemini reading video directly uses roughly 1M per hour.
+- SenseVoice int8 (2025-09-09) garbles English whatever the settings (language en or auto,
+  punctuation on or off): letters drop and Chinese numerals slip in ("ABUT SXH 零" for "about
+  6,000"). Candidates through sherpa-onnx: Parakeet TDT 0.6B v2 int8 (482 MB, English only),
+  Moonshine base English (111 MB), or the older SenseVoice int8 (163 MB). Needs the owner's OK.
+- Full-resolution frames from YouTube: yt-dlp gives the video-only stream address and ffmpeg
+  reads one frame per needed second from it: 3 frames in 3.5–8 s including the address, about
+  20–125 KB each at 1280 px.
+- Claude Code with only the plugin (2026-10-04, `qbReD1cGykQ`): 8 turns in 51 s; it read the
+  section, looked at the scene map's frames, then at exact moments, and checked two of its own
+  claims before answering.
 - The local qwen3.5 (9.7B, vision) took 64 s to describe one chart thumbnail on the RTX 4050
   (6 GB) and misread the chart; too slow and too vague to be the vision step here.

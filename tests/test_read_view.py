@@ -180,3 +180,10 @@ def test_numbers_as_sensevoice_writes_them():
     assert checker.missing_numbers("464,391 produced", ["生产了四六四三九幺"]) == []
     assert checker.missing_numbers("Storage reached 13.7 GWh", ["储能是十三点七吉瓦时"]) == []
     assert checker.missing_numbers("Storage reached 15.7 GWh", ["储能是十三点七吉瓦时"]) == ["15.7"]
+
+
+def test_a_year_read_digit_by_digit_doesnt_run_into_the_number_before_it():
+    said = "他在二零二三年占据了百分之二十五点二二零二四年二十四点二二零二五年二十点九"
+    values = [v for _, v in checker._values(said)]
+    assert 25.2 in values and 2024 in values and 24.2 in values and 2025 in values and 20.9 in values
+    assert checker.missing_numbers("24.2% in 2024", [said]) == []

@@ -89,6 +89,15 @@ def names(*texts: str) -> list[str]:
     return list(seen)[:MAX_NAMES]
 
 
+def title_terms(title: str) -> list[str]:
+    """Lower-case Latin words in a title written in Chinese: "llm abliteration是什么？" names a
+    term the writer otherwise spells "obliteration" (2026-10-04). Capitalised ones are already
+    names; in an English title every word is plain English, so none count."""
+    if not _CJK.search(title or ""):
+        return []
+    return list(dict.fromkeys(re.findall(r"(?<![A-Za-z])[a-z][a-z0-9+-]{3,}(?![A-Za-z])", _URLISH.sub(" ", title))))
+
+
 def transcribe(pieces: list[tuple[Path, float]], locale: str) -> list[Segment]:
     """Transcribe all pieces at once; times are shifted back onto the whole recording."""
     binary = tool()

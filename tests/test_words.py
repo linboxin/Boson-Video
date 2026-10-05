@@ -74,6 +74,8 @@ def test_guess_locale_and_names():
     assert speech.guess_locale("[1hr Talk] Intro to Large Language Models") == "en_US"
     found = speech.names("Money or Life 美股频道 on GPT-5, NVDA and SpaceX. https://x.com/a?b=1 code SHKN00019&x A")
     assert found == ["Money or Life", "GPT-5", "NVDA", "SpaceX"]
+    assert speech.title_terms("llm abliteration是什么？") == ["abliteration"]
+    assert speech.title_terms("Intro to large language models") == []
 
 
 def test_transcribe_shifts_piece_times_and_sorts(monkeypatch, tmp_path):

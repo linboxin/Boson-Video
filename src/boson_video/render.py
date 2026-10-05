@@ -616,7 +616,7 @@ def _read_view(tl: Timeline) -> str:
     return f"""<h2 class="sr" id="read-h">Summary</h2>
 <p class="tldr">{tldr}</p>
 {sections}
-<p class="note" style="margin-top:16px">{_check_note(s.sentences())}</p>"""
+<p class="note" style="margin-top:16px">{_check_note(s.sentences(), s.checker)}</p>"""
 
 
 def _section(tl: Timeline, sec: Section) -> str:
@@ -660,7 +660,11 @@ def _sentence(tl: Timeline, x: Sentence) -> str:
     return f'<span class="sent">{when}{text}</span>'
 
 
-def _check_note(sentences: list[Sentence]) -> str:
+def _check_note(sentences: list[Sentence], checker: str = "jev+code") -> str:
+    if checker == "code":
+        flagged = sum(1 for s in sentences if s.check == "unsupported")
+        return (f"Numbers checked by code against the passages each sentence cites ({flagged} flagged ?); "
+                "the meaning wasn't checked (no TypeSafe key for Jev).")
     checked = [s for s in sentences if s.check]
     if not checked:
         return "Sentences were not checked."

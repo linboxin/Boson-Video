@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import webbrowser
@@ -15,14 +16,13 @@ from pathlib import Path
 
 import httpx
 
-from . import youtube
+from . import library, youtube
 from .ask import AskError, ask
 from .audio import AudioError
 from .checker import CheckError
 from .env import load_env
 from .local import LocalVideoError
 from .pipeline import add_summary, add_words, build
-from .render import render
 from .scenes import profile
 from .speech import SpeechError
 from .timeline import Segment, Timeline, Video
@@ -40,6 +40,11 @@ def main(argv: list[str] | None = None) -> int:
         return ask_main(argv[1:])
     if argv[:1] == ["serve"]:
         return serve_main(argv[1:])
+    if argv[:1] == ["mcp"]:
+        from .mcp_server import main as mcp_main  # the plugin; stdout carries the protocol
+
+        mcp_main()
+        return 0
     ap = argparse.ArgumentParser(
         prog="boson-video",
         description="Read a video like a document: scenes in about a second, then the words.",
@@ -91,6 +96,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.no_summary or not tl.transcript:
         return 0
+    if not os.environ.get("INCEPTION_API_KEY"):
+        print("no summary: no writing key (INCEPTION_API_KEY in .env). The page has the scenes, the words and "
+              "search; your own AI can read the whole video through the plugin (boson-video mcp).")
+        return 0
     try:
         stats = add_summary(tl, args.effort)
     except (WriterError, CheckError) as e:
@@ -103,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"boson-video: no translation or glossary: {stats['error']}", file=sys.stderr)
     s = tl.summary
     print(f"summary ready in {time.perf_counter() - started:.2f} s: {len(s.sections)} sections, "
-          f"{len(s.sentences())} sentences, {sum(x.check == 'supported' for x in s.sentences())} checked ✓ "
+          f"{len(s.sentences())} sentences, {sum(x.check == 'supported' for x in s.sentences())} checked ✓ by {s.checker} "
           f"({_stages(tl, 'write', 'study', 'check')}; {stats['write']['output_tokens']} tokens written, ${stats['write']['cost_usd']:.4f})")
     if tl.terms or tl.translation:
         extra = sum(stats.get(k, {}).get("cost_usd", 0) for k in ("translate", "glossary"))
@@ -181,11 +190,7 @@ def _clock(t: float) -> str:
 
 
 def _write(tl: Timeline, folder: Path) -> Path:
-    folder.mkdir(parents=True, exist_ok=True)
-    page = folder / "index.html"
-    page.write_text(render(tl), encoding="utf-8")
-    (folder / "timeline.json").write_text(json.dumps(tl.to_json(), ensure_ascii=False, indent=1), encoding="utf-8")
-    return page
+    return library.save(tl, folder)
 
 
 def _stages(tl: Timeline, *names: str) -> str:

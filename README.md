@@ -1,7 +1,8 @@
 # Boson-Video
 
-Read any video like a document. Give it a YouTube link (or a video file) and you get one
-page, filled in as each stage finishes:
+Read any video like a document. Boson-Video turns a YouTube link (or a video file) into a
+document where every line carries the second it came from, and lets **your own AI** read it
+through a plugin (no keys needed), or gives you one page, filled in as each stage finishes:
 
 1. **Scenes, in about a second:** every new visual and when it appears, the shots that keep
    coming back, the chapters and YouTube's "most replayed" curve, on a ribbon you drag to
@@ -26,6 +27,48 @@ stages that come next). The page is written twice: with the scenes, then with th
 The words use Apple's on-device transcriber on a Mac (macOS 26 and Xcode's command line
 tools; built on first use), and SenseVoice elsewhere (models in `~/.cache/boson-video/models`). The summary needs `INCEPTION_API_KEY` (Mercury writes it) and
 `TYPESAFE_API_KEY` (Jev checks it and answers `ask`) in `.env`.
+
+## In your own AI (the plugin)
+
+`boson-video mcp` is an MCP server, the standard Claude Code, Claude Desktop, Cursor and Codex
+use for tools. Your AI opens a video, reads the transcript, looks at the frames that matter at
+full resolution, searches, and checks a claim before stating it. It works with no keys; your
+AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search adds Jev's pick.
+
+| Tool | What your AI gets |
+| --- | --- |
+| `video_open(video)` | A briefing within seconds: length, language, chapters, what the picture does, the summary and key terms if built, how to go on. A new video builds in the background (the map in about 2 s, the words in 10–50 s) |
+| `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, up to about 12k tokens a reply |
+| `video_frames(video, at \| start–end)` | Up to 6 frames, full resolution, at the new visuals the scene map found (or exact moments), each with what was said then |
+| `video_search(query, video?)` | Where something is said, in one video or all of them |
+| `video_check(video, claim, at)` | The claim against what was said at those moments, and which checker judged it |
+| `video_list()` | The videos opened so far |
+
+Claude Code:
+
+```bash
+claude mcp add boson-video -e BOSON_VIDEO_HOME=/path/to/Boson-Video/out -- uv --directory /path/to/Boson-Video run boson-video mcp
+```
+
+Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "boson-video": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/Boson-Video", "run", "boson-video", "mcp"],
+      "env": { "BOSON_VIDEO_HOME": "/path/to/Boson-Video/out" }
+    }
+  }
+}
+```
+
+`BOSON_VIDEO_HOME` is where videos are kept (default `~/.boson-video`); pointing it at `out`
+shares them with the command line and the page. Keys are read from the project's `.env`.
+`uv run python scripts/mcp_smoke.py <video> [--no-keys]` runs the plugin the way an AI app
+does and calls every tool. The format of `timeline.json` is in
+[docs/timeline-format.md](docs/timeline-format.md).
 
 ## Measured
 
@@ -142,8 +185,9 @@ sections where every sentence links to its second, and an ask box. The agreed di
 milestones and open decisions are in [docs/DIRECTION.md](docs/DIRECTION.md), and the
 target screen is [docs/read-view.html](docs/read-view.html).
 
-Milestones 1 (scenes), 2 (words) and 3 (read view) are done. Next is milestone 4: the
-page takes the shape of the video (article, slide deck, steps, contact sheet).
+Milestones 1 (scenes), 2 (words), 3 (read view) and 3b (learning) are done. Milestone 4,
+the plugin, is in progress: the engine runs without keys and any MCP app can read a video.
+Layouts by kind of video come later.
 
 ## Tests
 
@@ -167,5 +211,9 @@ uv run python scripts/accuracy.py snZ811wvjjw zh-TW zh_TW   # score a transcript
 - English names inside Chinese speech come out garbled in the transcript ("Money or Life"
   became "Monelife"). Apple's transcriber ignored hint words; the summary spells them right
   from the video's own name list, but the transcript keeps the garbled form.
-- Asking in your own words works from the command line; inside the page, search matches
-  exact words. Asking inside the page needs a server, which the extension will provide.
+- Asking in your own words works from the command line, in the page when it is served
+  (`boson-video serve`), and through the plugin.
+- SenseVoice (the transcriber off the Mac) is good on Mandarin but garbles English: letters
+  drop out and words run together ("ndhis woulsoubut to millil dola" for "and this would cost
+  about 2 million dollars", Karpathy's talk, 2026-10-04). English videos on Windows need
+  another model; on a Mac, Apple's transcriber handles English.

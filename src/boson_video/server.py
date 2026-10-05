@@ -16,22 +16,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import study
-from .timeline import Segment, Sentence, Term, Timeline, Video
+from . import library, study
+from .timeline import Timeline
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _lock = threading.Lock()  # notes.json is written by one request at a time
 
 
 def load(folder: Path) -> Timeline:
-    """Enough of timeline.json to answer questions: the video, the transcript, its English."""
-    data = json.loads((folder / "timeline.json").read_text(encoding="utf-8"))
-    tl = Timeline(video=Video(**data["video"]), frames=[], sheets=[])
-    tl.transcript = [Segment(**s) for s in data.get("transcript", [])]
-    tl.translation = data.get("translation", [])
-    tl.language = data.get("language")
-    tl.terms = [Term(**{**t, "said": Sentence(**t["said"])}) for t in data.get("terms", [])]
-    return tl
+    """The video in this folder (without the sheet images; answering doesn't need them)."""
+    return library.load(folder.name, folder.parent)
 
 
 def notes(folder: Path) -> list[dict]:
@@ -61,6 +55,16 @@ def make_handler(root: Path):
             folder = root / vid
             return folder if (folder / "timeline.json").exists() else None
 
+        def _same_origin(self) -> bool:
+            """Any web page you visit could post here and spend your API credits, so only JSON
+            sent by our own pages counts: a cross-site page can't send JSON without asking first,
+            and the Host check stops a rebound DNS name."""
+            host = (self.headers.get("Host") or "").split(":")[0]
+            origin = self.headers.get("Origin")
+            json_body = (self.headers.get("Content-Type") or "").split(";")[0].strip() == "application/json"
+            local_origin = origin is None or urlparse(origin).hostname in ("127.0.0.1", "localhost")
+            return json_body and local_origin and host in ("127.0.0.1", "localhost")
+
         def do_GET(self):
             url = urlparse(self.path)
             parts = [p for p in url.path.split("/") if p]
@@ -81,6 +85,8 @@ def make_handler(root: Path):
             url = urlparse(self.path)
             if url.path != "/api/ask":
                 return self._send(404, b"not found", "text/plain")
+            if not self._same_origin():
+                return self._json(403, {"error": "asks are accepted only from the page itself"})
             try:
                 req = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
             except json.JSONDecodeError:

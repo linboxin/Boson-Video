@@ -89,7 +89,7 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     else:
         src = Path(tl.video.url)
     wav = audio.to_wav(src, folder / "audio16k.wav")
-    locale = locale or speech.guess_locale(tl.video.title)
+    locale = locale or audio.track_language(folder) or speech.guess_locale(tl.video.title, tl.video.description)
     if sys.platform == "darwin":
         total = audio.duration(wav)
         plan = audio.plan_pieces(total, audio.silences(wav), audio.piece_count(total))
@@ -121,7 +121,7 @@ def add_summary(tl: Timeline, effort: str = "low") -> dict:
     every cited sentence (Jev). The summary is required; the other two are extras, so a failure
     there is reported and the page goes on without it."""
     clock = Stopwatch()
-    names = speech.names(tl.video.title, tl.video.channel, tl.video.description)
+    names = speech.names(tl.video.title, tl.video.channel, tl.video.description) + speech.title_terms(tl.video.title)
     language = writer.language_name(tl.language)
     extras: dict = {}
     with ThreadPoolExecutor(3) as pool:

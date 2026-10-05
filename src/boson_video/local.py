@@ -30,7 +30,8 @@ class LocalVideoError(RuntimeError):
 
 
 def ffmpeg() -> str:
-    for candidate in (shutil.which("ffmpeg"), Path.home() / ".local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg"):
+    for candidate in (shutil.which("ffmpeg"), Path.home() / ".local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg",
+                      "/usr/local/bin/ffmpeg", Path.home() / "scoop/shims/ffmpeg.exe"):
         if candidate and Path(candidate).exists():
             return str(candidate)
     raise LocalVideoError("ffmpeg not found; install it (e.g. `brew install ffmpeg`) to read local files")

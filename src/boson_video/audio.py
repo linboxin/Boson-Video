@@ -15,6 +15,7 @@ from pathlib import Path
 
 from .local import ffmpeg
 
+AUDIO_SUFFIXES = {".m4a", ".webm", ".mp4", ".opus", ".ogg", ".mp3", ".aac", ".mka", ".weba"}
 RATE = 16_000  # what speech models want; also small and fast to cut
 # Speech needs little bitrate, and small files arrive sooner. YouTube now adds auto-dubbed
 # tracks (an English dub of a Chinese talk), so the track marked "original" comes first.
@@ -29,7 +30,7 @@ class AudioError(RuntimeError):
 def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
     """Download only the audio track (cached in `folder` unless `fresh`)."""
     folder.mkdir(parents=True, exist_ok=True)
-    cached = sorted(p for p in folder.glob("audio.*") if p.suffix not in (".wav", ".part"))
+    cached = _downloaded(folder)
     if cached and not fresh:
         return cached[0]
     for old in cached:
@@ -37,7 +38,7 @@ def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
     cmd = [
         sys.executable, "-m", "yt_dlp", "-f", SPEECH_FORMAT, "--js-runtimes", "node",
         "-o", str(folder / "audio.%(ext)s"), "--no-progress", "--quiet", "--no-warnings",
-        "--print", "after_move:filepath", f"https://www.youtube.com/watch?v={video_id}",
+        "--print", "after_move:%(language)s", f"https://www.youtube.com/watch?v={video_id}",
     ]
     # YouTube changes which formats it offers from one request to the next and
     # sometimes offers none, so one retry after a pause is worth it.
@@ -45,12 +46,19 @@ def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
         done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         # Find the file on disk rather than trusting the printed path: on Windows a
         # non-ASCII folder name comes back garbled.
-        got = sorted(p for p in folder.glob("audio.*") if p.suffix not in (".wav", ".part"))
+        got = _downloaded(folder)
         if done.returncode == 0 and got:
+            lines = done.stdout.strip().splitlines()
+            (folder / "audio.lang").write_text(lines[-1].strip() if lines else "", encoding="utf-8")
             return got[0]
         if attempt == 0:
             time.sleep(2)
     raise AudioError(f"yt-dlp could not fetch the audio: {done.stderr.strip()[-300:]}")
+
+
+def _downloaded(folder: Path) -> list[Path]:
+    """The downloaded audio file, by extension (the folder also holds audio.lang and partial files)."""
+    return sorted(p for p in folder.glob("audio.*") if p.suffix.lower() in AUDIO_SUFFIXES)
 
 
 def to_wav(src: Path, dst: Path) -> Path:
@@ -111,3 +119,15 @@ def cut(wav: Path, pieces: list[tuple[float, float]], folder: Path) -> list[tupl
                 dst.writeframes(frames)
             out.append((path, a))
     return out
+
+
+def track_language(folder: Path) -> str | None:
+    """The speech locale from the language YouTube labels the audio track with ("zh-Hant" -> zh_CN).
+
+    Better than guessing from the title: a Chinese talk can have an English title. None when
+    YouTube gave no label.
+    """
+    path = folder / "audio.lang"
+    tag = path.read_text(encoding="utf-8").strip().lower() if path.exists() else ""
+    base = tag.split("-")[0]
+    return {"zh": "zh_CN", "yue": "yue_CN", "en": "en_US", "ja": "ja_JP", "ko": "ko_KR"}.get(base)
