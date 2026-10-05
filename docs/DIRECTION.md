@@ -74,7 +74,7 @@ Three layers, each with one job:
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
-| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Built, 2026-10-04; open: English off the Mac, Cursor | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, words at 47 s, but SenseVoice's English is unusable (needs another model). Cursor not tried yet |
+| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried) | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | Next | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Needs the OCR model download | Slide text of `zjkBMFhNj_g` right on 20 hand-checked slides; SenseVoice's error rate measured against burned-in subtitles |
 | 7 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
@@ -89,8 +89,11 @@ Three layers, each with one job:
   check fails).
 - **Apple's on-device transcriber** (SpeechAnalyzer) makes the transcripts on a Mac: 80× real
   time in one stream and about 200× with the audio cut into 8 pieces on the owner's M5.
-- **SenseVoice** (through sherpa-onnx) makes them elsewhere: 11:35 of Mandarin in 10 s and
-  35 minutes in 25 s on a 12-thread Windows laptop (CPU). Its error rate isn't measured yet.
+- **SenseVoice** (through sherpa-onnx) makes them elsewhere for Chinese and other non-English
+  speech: 4.8% character errors on the Mandarin TEDx talk; 11:35 in 10 s and 35 minutes in 25 s
+  on a 12-thread Windows laptop (CPU).
+- **Parakeet** (TDT 0.6B v2, through sherpa-onnx) makes English transcripts off the Mac: 10.5% word
+  errors on the English TED talk (SenseVoice: 58.6%); 20 minutes in 27 s, an hour in 77 s.
 - **Mercury** (Inception, text) writes the page's summary, English transcript and glossary.
   In the plugin the user's own AI writes instead.
 - **Jev** (TypeSafe, text only, typed answers) judges and never writes. Today it checks each
@@ -160,6 +163,9 @@ videos on our servers (bot checks and other people's rights).
   video, at the moments the scene map picks; thumbnails remain the fallback.
 - 2026-10-04: a hosted plugin is fine, as long as YouTube downloads happen on the user's side
   (their computer or their browser) or the video is the user's own file.
+- 2026-10-04: the owner handed all four follow-ups to Claude ("you should handle it all"),
+  which covers the two downloads they needed: Parakeet for English (about 480 MB) and an OCR
+  model for screen text.
 - 2026-10-04: the plugin's shape: a briefing on open, then tools to drill down (chosen by
   Claude under the owner's hand-off; the owner can overturn it).
 
@@ -210,8 +216,9 @@ videos on our servers (bot checks and other people's rights).
   not Claude's tokenizer); Gemini reading video directly uses roughly 1M per hour.
 - SenseVoice int8 (2025-09-09) garbles English whatever the settings (language en or auto,
   punctuation on or off): letters drop and Chinese numerals slip in ("ABUT SXH 零" for "about
-  6,000"). Candidates through sherpa-onnx: Parakeet TDT 0.6B v2 int8 (482 MB, English only),
-  Moonshine base English (111 MB), or the older SenseVoice int8 (163 MB). Needs the owner's OK.
+  6,000"), 58.6% word errors on a TED talk. Parakeet TDT 0.6B v2 int8 (482 MB) gets 10.5% on the
+  same talk, so English goes to Parakeet. It writes punctuation and digits, but glues some names
+  ("Lama 270D" for Llama 2 70B).
 - Full-resolution frames from YouTube: yt-dlp gives the video-only stream address and ffmpeg
   reads one frame per needed second from it: 3 frames in 3.5–8 s including the address, about
   20–125 KB each at 1280 px.

@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 from boson_video.accuracy import error_rate, units, vtt_text
-from boson_video.cli import _write
+from boson_video import library
 from boson_video.pipeline import add_words, build
 
 
@@ -34,18 +34,20 @@ def human_captions(video_id: str, lang: str, folder: Path) -> str:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")
     video_id, lang, locale = sys.argv[1:4]
-    folder = Path("out") / video_id
-    reference = units(human_captions(video_id, lang, folder))
+    folder = library.home() / video_id
+    chinese = locale.startswith(("zh", "yue"))
+    reference = units(human_captions(video_id, lang, folder), simplified=chinese)
     started = time.perf_counter()
     tl = build(video_id)
     add_words(tl, folder, locale)
-    _write(tl, folder)
+    library.save(tl, folder)
     took = time.perf_counter() - started
-    hypothesis = units(" ".join(s.text for s in tl.transcript))
+    hypothesis = units(" ".join(s.text for s in tl.transcript), simplified=chinese)
     rate = error_rate(reference, hypothesis)
-    unit = "characters" if locale.startswith(("zh", "yue")) else "words"
-    print(f"{tl.video.title} ({tl.video.duration / 60:.1f} min, {locale})")
+    unit = "characters (both sides in simplified)" if chinese else "words"
+    print(f"{tl.video.title} ({tl.video.duration / 60:.1f} min, {locale}, {tl.transcriber or 'Apple'})")
     print(f"human captions: {len(reference)} units · ours: {len(hypothesis)} units · error rate over {unit}: {rate:.1%}")
     print(f"page with words in {took:.1f} s ({' · '.join(f'{k} {v / 1000:.2f} s' for k, v in tl.timings.items())})")
 

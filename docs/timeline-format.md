@@ -24,7 +24,7 @@ of the same file: a passage index into `transcript`, a frame index into `frames`
 | `captions` | array | Caption tracks YouTube lists (not downloaded): `lang`, `kind` (`manual` or `asr`), `name` |
 | `language` | string or null | The locale the speech was transcribed in, such as `zh_CN` or `en_US` |
 | `transcript` | array | Passages in time order: `start`, `end`, `text`. Machine-made |
-| `transcriber` | string | `Apple SpeechAnalyzer` or `SenseVoice` |
+| `transcriber` | string | `Apple SpeechAnalyzer`, `SenseVoice` (Chinese and other non-English speech off the Mac) or `Parakeet` (English off the Mac) |
 | `translation` | array of strings | English for each passage, same length and order as `transcript`; empty when not made |
 | `terms` | array | Technical terms: `heard` (as written in the transcript), `term` (written correctly), `en`, `reading` (pinyin for Chinese), `explain` (general background, not from the video), `said` (a sentence, below), `mentions` (passage indices) |
 | `questions` | array of strings | Questions a learner might ask, in English |

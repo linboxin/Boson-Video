@@ -150,7 +150,7 @@ class Timeline:
     captions: list[CaptionTrack] = field(default_factory=list)
     language: str | None = None  # locale the speech was transcribed in, e.g. "zh_CN"
     transcript: list[Segment] = field(default_factory=list)
-    transcriber: str = ""  # "Apple SpeechAnalyzer" or "SenseVoice"
+    transcriber: str = ""  # "Apple SpeechAnalyzer", "SenseVoice" or "Parakeet"
     translation: list[str] = field(default_factory=list)  # English for each transcript passage
     terms: list[Term] = field(default_factory=list)  # the glossary, in order of first mention
     questions: list[str] = field(default_factory=list)  # questions a learner might ask, in English

@@ -121,6 +121,18 @@ ask in, citing the second, with general background kept apart. Questions are sav
 | --- | --- | --- | --- | --- |
 | 程序员老王, "llm abliteration是什么？" (Chinese, 11:35) | **10.0 s** for 88 passages | **18–22 s** from start; 13–16 terms; 21–22 of 22–23 summary sentences checked ✓ | $0.0015 | 2.3–2.8 s per question; 3 of 3 spot checks right, including "not in this video" |
 
+### Transcription off the Mac (2026-10-04, Windows laptop, 12 threads, CPU, audio cached)
+
+Scored with `scripts/accuracy.py` against human captions (Chinese compared in simplified
+characters on both sides).
+
+| Video | Length | Model | Error rate | Words ready |
+| --- | --- | --- | --- | --- |
+| 陳永儀, TEDxTaipei (Chinese) | 14:29 | SenseVoice | **4.8% of characters** | 11.0 s |
+| Ken Robinson, TED (English) | 20:06 | Parakeet | **10.5% of words** (fillers the captions omit included) | 26.9 s |
+| Ken Robinson, TED (English) | 20:06 | SenseVoice | 58.6% of words | |
+| Andrej Karpathy (English) | 59:48 | Parakeet | only automatic captions exist | 77 s |
+
 ## How it works
 
 1. **One page request.** The watch page holds the title, duration, caption tracks,
@@ -212,7 +224,6 @@ uv run python scripts/accuracy.py snZ811wvjjw zh-TW zh_TW   # score a transcript
   from the video's own name list, but the transcript keeps the garbled form.
 - Asking in your own words works from the command line, in the page when it is served
   (`boson-video serve`), and through the plugin.
-- SenseVoice (the transcriber off the Mac) is good on Mandarin but garbles English: letters
-  drop out and words run together ("ndhis woulsoubut to millil dola" for "and this would cost
-  about 2 million dollars", Karpathy's talk, 2026-10-04). English videos on Windows need
-  another model; on a Mac, Apple's transcriber handles English.
+- Off the Mac, English goes to Parakeet and everything else to SenseVoice, because SenseVoice
+  garbles English (58.6% word errors on a TED talk, against Parakeet's 10.5%). Parakeet is the
+  slower of the two: about a minute of decoding per hour of English on a 12-thread laptop.

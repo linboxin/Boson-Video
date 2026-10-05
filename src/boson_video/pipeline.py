@@ -107,7 +107,7 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
             tl.transcript, laps = sensevoice.transcribe(wav, locale)
         except sensevoice.SenseVoiceError as e:
             raise speech.SpeechError(str(e)) from None
-        tl.transcriber = "SenseVoice"
+        tl.transcriber = sensevoice.model_for(locale)
         clock.laps.update(laps)
         clock.last = time.perf_counter()
     tl.language = locale

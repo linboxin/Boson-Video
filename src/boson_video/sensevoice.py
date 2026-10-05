@@ -1,12 +1,16 @@
-"""Speech to text anywhere (Windows, Linux, Intel Macs) with SenseVoice, through sherpa-onnx.
+"""Speech to text anywhere (Windows, Linux, Intel Macs), through sherpa-onnx.
 
-The backup transcriber from docs/DIRECTION.md, used where Apple's isn't available. A voice
-detector (Silero) finds the stretches of speech, and SenseVoice (int8, CPU) transcribes each
-one as soon as it is found, on several threads sharing one model; each stretch becomes one
-passage with its own start and end. One stretch per thread beat batching them (2026-10-04,
-200 s of Mandarin on a 12-thread laptop: 2.4 s against 4.1 s), because a batch pads every
-stretch to the longest. The models live in
-~/.cache/boson-video/models (about 165 MB, downloaded once with the owner's approval).
+Used where Apple's transcriber isn't available. Two models, chosen by the speech language:
+SenseVoice (int8) for Chinese, Cantonese, Japanese and Korean, and Parakeet TDT 0.6B v2 (int8)
+for English, because SenseVoice garbles English (letters drop and Chinese numerals slip in:
+"ABUT SXH 零" for "about 6,000", 2026-10-04). `BOSON_ASR=sensevoice|parakeet` forces one.
+
+A voice detector (Silero) finds the stretches of speech, and the model transcribes each one as
+soon as it is found, on several threads sharing one model; each stretch becomes one passage
+with its own start and end. One stretch per thread beat batching them (2026-10-04, 200 s of
+Mandarin on a 12-thread laptop: 2.4 s against 4.1 s), because a batch pads every stretch to
+the longest. The models live in ~/.cache/boson-video/models (SenseVoice about 165 MB,
+Parakeet about 480 MB, each downloaded once with the owner's approval).
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from .timeline import Segment
 
 MODELS = Path(os.environ.get("BOSON_MODELS", Path.home() / ".cache" / "boson-video" / "models"))
 SENSEVOICE = MODELS / "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
+PARAKEET = MODELS / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
 VAD = MODELS / "silero_vad.onnx"
 RATE = 16_000
 LANGS = {"zh": "zh", "yue": "yue", "en": "en", "ja": "ja", "ko": "ko"}
@@ -36,6 +41,32 @@ class SenseVoiceError(RuntimeError):
 
 def available() -> bool:
     return (SENSEVOICE / "model.int8.onnx").exists() and VAD.exists()
+
+
+def model_for(locale: str | None) -> str:
+    """"Parakeet" for English when it is installed, else "SenseVoice"."""
+    forced = os.environ.get("BOSON_ASR", "").lower()
+    if forced in ("sensevoice", "parakeet"):
+        return "Parakeet" if forced == "parakeet" else "SenseVoice"
+    english = (locale or "").lower().startswith("en")
+    return "Parakeet" if english and (PARAKEET / "encoder.int8.onnx").exists() else "SenseVoice"
+
+
+def _recognizer(name: str, locale: str | None):
+    import sherpa_onnx
+
+    if name == "Parakeet":
+        return sherpa_onnx.OfflineRecognizer.from_transducer(
+            encoder=str(PARAKEET / "encoder.int8.onnx"), decoder=str(PARAKEET / "decoder.int8.onnx"),
+            joiner=str(PARAKEET / "joiner.int8.onnx"), tokens=str(PARAKEET / "tokens.txt"),
+            num_threads=1, model_type="nemo_transducer")
+    return sherpa_onnx.OfflineRecognizer.from_sense_voice(
+        model=str(SENSEVOICE / "model.int8.onnx"),
+        tokens=str(SENSEVOICE / "tokens.txt"),
+        num_threads=1,
+        language=LANGS.get((locale or "").split("_")[0], "auto"),
+        use_itn=True,  # punctuation and digits ("三点二一" -> "3.21")
+    )
 
 
 def _read(wav: Path) -> np.ndarray:
@@ -104,23 +135,17 @@ def transcribe(wav: Path, locale: str | None = None, threads: int | None = None)
     """The whole recording -> passages, plus timings in ms (decoding overlaps voice detection)."""
     if not available():
         raise SenseVoiceError(f"SenseVoice isn't installed in {MODELS}")
-    import sherpa_onnx
-
+    name = model_for(locale)
     clock = time.perf_counter()
-    recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
-        model=str(SENSEVOICE / "model.int8.onnx"),
-        tokens=str(SENSEVOICE / "tokens.txt"),
-        num_threads=1,
-        language=LANGS.get((locale or "").split("_")[0], "auto"),
-        use_itn=True,  # punctuation and digits ("三点二一" -> "3.21")
-    )
+    recognizer = _recognizer(name, locale)
     load_ms = (time.perf_counter() - clock) * 1000
+    clean = tidy if name == "SenseVoice" else str.strip  # Parakeet already writes normal case
 
     def one(start: float, audio: np.ndarray) -> Segment:
         stream = recognizer.create_stream()
         stream.accept_waveform(RATE, audio)
         recognizer.decode_stream(stream)
-        return Segment(round(start, 2), round(start + len(audio) / RATE, 2), tidy(stream.result.text))
+        return Segment(round(start, 2), round(start + len(audio) / RATE, 2), clean(stream.result.text))
 
     samples = _read(wav)
     workers = threads or max(1, min(10, (os.cpu_count() or 4) - 2))

@@ -26,7 +26,10 @@ build-backend = "hatchling.build"
 packages = ["src/boson_video"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = [
+    "opencc-python-reimplemented>=0.1.7",
+    "pytest>=8",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

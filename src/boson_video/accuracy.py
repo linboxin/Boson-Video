@@ -32,8 +32,15 @@ def vtt_text(vtt: str) -> str:
     return " ".join(lines)
 
 
-def units(text: str) -> list[str]:
-    """Comparable units: each Chinese character, and each lowercased English word or number."""
+def units(text: str, simplified: bool = False) -> list[str]:
+    """Comparable units: each Chinese character, and each lowercased English word or number.
+
+    `simplified` turns traditional characters into simplified first (OpenCC, a dev dependency), so
+    a transcriber writing 里 isn't charged an error against captions writing 裡."""
+    if simplified:
+        from opencc import OpenCC
+
+        text = OpenCC("t2s").convert(text)
     return _UNITS.findall(_BRACKETS.sub(" ", text).lower())
 
 
