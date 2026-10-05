@@ -113,6 +113,7 @@ a.ts:hover,a.ts:focus-visible{text-decoration:underline}
 .ln p{margin:0}
 .ln .t-orig{font:17px/2.1 var(--read)}
 .ln.now{background:var(--now)}
+.screen-row p{margin:2px 0 0;font:14px/1.6 var(--ui);color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
 .ln[hidden]{display:none}
 .ln mark.hit{background:color-mix(in srgb,var(--heat) 32%,transparent);color:inherit;border-radius:2px}
 .chapter-row{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:16px 8px 4px;border-top:1px solid var(--line);margin-top:8px;list-style:none}
@@ -683,10 +684,15 @@ def _transcript(tl: Timeline) -> str:
     chapters = sorted(tl.chapters, key=lambda c: c.start)
     rows, ci = [], 0
     lang = _e(_lang_attr(tl))
+    shown = [sc for sc in tl.screens if sc.text]
     for i, seg in enumerate(tl.transcript):
         while ci < len(chapters) and chapters[ci].start <= seg.start + 0.5:
             rows.append(f'<li class="chapter-row">{_e(chapters[ci].title)}</li>')
             ci += 1
+        while shown and shown[0].t <= seg.start + 0.5:
+            sc = shown.pop(0)
+            rows.append(f'<li class="ln screen-row"><a class="ts" href="{_e(tl.video.link(sc.t))}">{_clock(sc.t)}</a>'
+                        f'<div><span class="lbl">On screen</span><p>{"<br>".join(_e(x) for x in sc.text.splitlines())}</p></div></li>')
         en = f'<p class="t-en" lang="en">{_e(english[i])}</p>' if english and english[i] else ""
         rows.append(
             f'<li class="ln" id="p{i}" data-t="{seg.start:.2f}"><a class="ts" href="{_e(tl.video.link(seg.start))}">{_clock(seg.start)}</a>'

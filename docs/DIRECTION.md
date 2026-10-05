@@ -76,7 +76,7 @@ Three layers, each with one job:
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
 | 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried) | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | Next | Planted-error test passes for each checker; the label on every line is right |
-| 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Needs the OCR model download | Slide text of `zjkBMFhNj_g` right on 20 hand-checked slides; SenseVoice's error rate measured against burned-in subtitles |
+| 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
 | 7 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
 | 8 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
 | 9 | Later: a library across videos, layouts by kind of video, creator tools | | |
@@ -117,7 +117,7 @@ Each needs a number we track; "today" is as of 2026-10-04.
 | Names and numbers right | Errors in names, tickers and figures | Names fixed by the writer from the video's own name list; numbers checked in code, including Chinese numerals as SenseVoice writes them |
 | Fast | Time to first view, time to full read view | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached) |
 | Findable | Ask lands within 10 s of the right moment | 7 of 7 spot checks right, including "not in this video" |
-| Sees the screen | Numbers and code read from full-resolution frames | Slide titles only |
+| Sees the screen | Numbers and code read from full-resolution frames | Screen text in `timeline.json` at every new visual and build step: 19 of 20 Karpathy slides right, tables included (Chatbot Arena leaderboard read cell by cell); on-screen numbers like KL = 0.08 / 2.71 are searchable and checkable |
 | Works without keys | What the plugin and page give with no `.env` | The plugin works fully (its AI writes); the page has scenes, words and search; checks fall back to numbers in code and say so |
 
 ## Research directions
@@ -225,5 +225,10 @@ videos on our servers (bot checks and other people's rights).
 - Claude Code with only the plugin (2026-10-04, `qbReD1cGykQ`): 8 turns in 51 s; it read the
   section, looked at the scene map's frames, then at exact moments, and checked two of its own
   claims before answering.
+- Screen reading (RapidOCR, PP-OCR models, CPU): about 0.45 s a frame in one worker; more
+  workers were slower on this laptop (94 frames: 42 s with one, 53 with three, 75 with six).
+  Reading overlaps fetching: 88 moments of `qbReD1cGykQ` in 54 s from scratch, 74 of
+  `zjkBMFhNj_g` in 87 s, where seeking in an hour-long stream is the slow part (76 s). OCR runs
+  in a worker process so its onnxruntime never meets sherpa-onnx's.
 - The local qwen3.5 (9.7B, vision) took 64 s to describe one chart thumbnail on the RTX 4050
   (6 GB) and misread the chart; too slow and too vague to be the vision step here.

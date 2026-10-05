@@ -38,7 +38,7 @@ AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search ad
 | Tool | What your AI gets |
 | --- | --- |
 | `video_open(video)` | A briefing within seconds: length, language, chapters, what the picture does, the summary and key terms if built, how to go on. A new video builds in the background (the map in about 2 s, the words in 10–50 s) |
-| `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, up to about 12k tokens a reply |
+| `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, with what was on screen as `ON SCREEN` lines, up to about 12k tokens a reply |
 | `video_frames(video, at \| start–end)` | 6 frames by default, up to 12, full resolution, at the new visuals the scene map found (or exact moments), each with what was said then |
 | `video_search(query, video?)` | Where something is said, in one video or all of them |
 | `video_check(video, claim, at)` | The claim against what was said at those moments, and which checker judged it |
@@ -120,6 +120,18 @@ ask in, citing the second, with general background kept apart. Questions are sav
 | Video | Words (SenseVoice, audio cached) | Summary, English transcript, glossary, checks | Cost | Asking |
 | --- | --- | --- | --- | --- |
 | 程序员老王, "llm abliteration是什么？" (Chinese, 11:35) | **10.0 s** for 88 passages | **18–22 s** from start; 13–16 terms; 21–22 of 22–23 summary sentences checked ✓ | $0.0015 | 2.3–2.8 s per question; 3 of 3 spot checks right, including "not in this video" |
+
+### The screen (2026-10-04, Windows laptop, CPU)
+
+After the words, the frames at every new visual and build step are fetched at full resolution
+and read by OCR (RapidOCR, local). Burned-in subtitles are kept apart; a build step keeps only
+the lines it adds. The text goes into `timeline.json` (`screens`), the page's transcript, and the
+plugin's reading, search and checks.
+
+| Video | Moments read | Time | Result |
+| --- | --- | --- | --- |
+| 程序员老王, abliteration (Chinese, 11:35) | 88 | 54 s from scratch | Diagram labels and on-screen values (KL = 0.08, KL = 2.71); subtitles apart at 85 moments |
+| Andrej Karpathy (English, 59:48) | 74 | 87 s (76 s of it seeking frames in the stream) | 19 of 20 hand-checked slides right, tables cell by cell; small text loses its spaces |
 
 ### Transcription off the Mac (2026-10-04, Windows laptop, 12 threads, CPU, audio cached)
 

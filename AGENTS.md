@@ -30,6 +30,8 @@ browser.
 - `library.py`: where videos live (`BOSON_VIDEO_HOME`), load and save (page, `timeline.json`, `sheets/`)
 - `jobs.py`: builds a video in a background thread; progress in `status.json`
 - `frames.py`: picks moments from the scene map; full-resolution frames (yt-dlp stream address + ffmpeg, one per second needed); thumbnail fallback
+- `screens.py`: what was shown, as text: frames at the scene map's moments, read by OCR; subtitles kept apart; build steps credited with their new lines
+- `ocr.py`: RapidOCR in a worker process (never alongside sherpa-onnx), reading frames as they arrive
 - `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: Mercury writes the summary and sections (strict JSON schema, every sentence cites passages, one retry)

@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--lang", help="speech language, e.g. zh_CN or en_US (default: guessed from the title)")
     ap.add_argument("--fresh-audio", action="store_true", help="download the audio again even if it is cached")
     ap.add_argument("--no-summary", action="store_true", help="scenes and words only; skip the summary")
+    ap.add_argument("--no-screens", action="store_true", help="don't read the text on screen")
     ap.add_argument("--effort", default="low", choices=["instant", "low", "medium", "high"],
                     help="how hard Mercury thinks while writing the summary (default: low)")
     ap.add_argument("--open", action="store_true", help="open the page in your browser")
@@ -94,6 +95,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"words ready in {time.perf_counter() - started:.2f} s: {len(tl.transcript)} passages, "
           f"{chars} characters, {tl.language} ({_stages(tl, 'audio download', 'audio prep', 'speech')})")
 
+    from . import screens
+
+    if not args.no_screens and screens.available():
+        t0 = time.perf_counter()
+        tl.screens, laps = screens.read(tl, folder)
+        tl.timings.update(laps)
+        tl.timings["screens"] = round((time.perf_counter() - t0) * 1000, 1)
+        _write(tl, folder)
+        print(f"screen read in {time.perf_counter() - t0:.1f} s: {len(tl.screens)} moments, "
+              f"{sum(1 for x in tl.screens if x.text)} with screen text, {sum(1 for x in tl.screens if x.subtitles)} with burned-in subtitles")
     if args.no_summary or not tl.transcript:
         return 0
     if not os.environ.get("INCEPTION_API_KEY"):

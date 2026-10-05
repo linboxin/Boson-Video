@@ -41,6 +41,9 @@ def _tl(id_: str | None = "abcdefghijk") -> Timeline:
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
+    from boson_video import screens
+
+    monkeypatch.setattr(screens, "available", lambda: False)  # offline: no OCR, no frame downloads
     monkeypatch.setenv("BOSON_VIDEO_HOME", str(tmp_path))
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("INCEPTION_API_KEY", raising=False)
@@ -244,3 +247,4 @@ def test_search_ranks_rare_words_and_ignores_common_ones():
     assert scores[1] == 0 and scores[4] == 0  # "to" alone counts for nothing
     assert scores[3] == max(scores)  # both rare words, as word forms
     assert plugin.rank("残差流", ["每一层残差流的数值", "无关的句子"]) [1] == 0
+    assert plugin.rank("known", ["Littleisknown infull detail", "nothing"])[0] > 0  # OCR glued the words

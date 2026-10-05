@@ -140,6 +140,17 @@ class Term:
 
 
 @dataclass
+class Screen:
+    """What one full-resolution frame shows, read by OCR (screens.py)."""
+
+    t: float
+    scene: int
+    text: str  # lines new on screen at this moment (all of them on a scene's first frame), top to bottom
+    subtitles: str = ""  # burned-in captions at the bottom: the speech written out, kept apart
+    image: str = ""  # the frame, relative to the video's folder (frames/<ms>.jpg)
+
+
+@dataclass
 class Timeline:
     video: Video
     frames: list[Frame]
@@ -154,6 +165,7 @@ class Timeline:
     translation: list[str] = field(default_factory=list)  # English for each transcript passage
     terms: list[Term] = field(default_factory=list)  # the glossary, in order of first mention
     questions: list[str] = field(default_factory=list)  # questions a learner might ask, in English
+    screens: list[Screen] = field(default_factory=list)  # what was shown, read at the new visuals
     summary: Summary | None = None
     timings: dict[str, float] = field(default_factory=dict)  # milliseconds per stage
 
@@ -178,6 +190,7 @@ class Timeline:
             "translation": self.translation,
             "terms": [asdict(t) for t in self.terms],
             "questions": self.questions,
+            "screens": [asdict(s) for s in self.screens],
             "summary": asdict(self.summary) if self.summary else None,
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,
@@ -214,6 +227,7 @@ class Timeline:
             translation=data.get("translation", []),
             terms=[Term(**{**t, "said": sentence(t["said"])}) for t in data.get("terms", [])],
             questions=data.get("questions", []),
+            screens=[Screen(**s) for s in data.get("screens", [])],
             summary=summary,
             timings=data.get("timings_ms", {}),
         )

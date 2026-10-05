@@ -31,7 +31,7 @@ def words_estimate(duration: float) -> float:
 
 
 def status(name: str, root: Path | None = None) -> dict:
-    """{"stage": "queued" | "scenes" | "words" | "summary" | "done" | "error" | "missing", ...}"""
+    """{"stage": "queued" | "scenes" | "words" | "screens" | "summary" | "done" | "error" | "missing", ...}"""
     where = library.folder(name, root)
     path = where / "status.json"
     for _ in range(20):
@@ -60,7 +60,7 @@ def start(ref: str, root: Path | None = None, words: bool = True) -> str:
         if t and t.is_alive():
             return name
         state = status(name, root)
-        if state["stage"] == "done" and (not words or _has_words(name, root)):
+        if state["stage"] == "done" and (not words or _complete(name, root)):
             return name
         # A fresh status before the thread starts, so nobody reads a stale error from an earlier run.
         _write_status(library.folder(name, root), stage="queued", started=time.time())
@@ -80,12 +80,20 @@ def wait(name: str, seconds: float, root: Path | None = None, until: tuple[str, 
         time.sleep(0.25)
 
 
-def _has_words(name: str, root: Path | None) -> bool:
+def _complete(name: str, root: Path | None) -> bool:
+    """Built as far as this computer can: words, and the screen read if OCR is installed."""
+    from . import screens
+
     try:
         data = json.loads((library.folder(name, root) / "timeline.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    return bool(data.get("transcript"))
+    return bool(data.get("transcript")) and ("screens" in data.get("timings_ms", {}) or not screens.available())
+
+
+def screens_estimate(moments: int) -> float:
+    """Seconds to read the screen (estimate from 88 moments in 54 s, 2026-10-04)."""
+    return 5 + 0.6 * moments
 
 
 def _write_status(where: Path, **fields) -> None:
@@ -102,6 +110,7 @@ def _write_status(where: Path, **fields) -> None:
 
 
 def _build(ref: str, name: str, root: Path | None, words: bool) -> None:
+    from . import frames, screens
     from .pipeline import add_summary, add_words, build  # heavy imports stay off the plugin's start-up
 
     where = library.folder(name, root)
@@ -118,6 +127,15 @@ def _build(ref: str, name: str, root: Path | None, words: bool) -> None:
             stage = "words"
             _write_status(where, stage=stage, started=started, words_eta=started + words_estimate(tl.video.duration))
             add_words(tl, where)
+            library.save(tl, where)
+        if words and "screens" not in tl.timings and screens.available():
+            stage = "screens"
+            count = len(frames.moments(tl, 0.0, None, limit=10**6))
+            _write_status(where, stage=stage, started=started, screens_eta=time.time() + screens_estimate(count))
+            t0 = time.perf_counter()
+            tl.screens, laps = screens.read(tl, where)
+            tl.timings.update(laps)
+            tl.timings["screens"] = round((time.perf_counter() - t0) * 1000, 1)
             library.save(tl, where)
         if tl.transcript and tl.summary is None and os.environ.get("INCEPTION_API_KEY"):
             stage = "summary"

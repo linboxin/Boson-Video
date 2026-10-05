@@ -9,6 +9,7 @@ dependencies = [
     "mcp>=2.3.0",
     "numpy>=2.0",
     "pillow>=11.0",
+    "rapidocr-onnxruntime>=1.4.4",
     "sherpa-onnx>=1.13.8",
     "sherpa-onnx-core>=1.13.8",
     "typesafe-sdk>=0.7.2",

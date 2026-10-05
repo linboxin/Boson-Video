@@ -28,6 +28,7 @@ of the same file: a passage index into `transcript`, a frame index into `frames`
 | `translation` | array of strings | English for each passage, same length and order as `transcript`; empty when not made |
 | `terms` | array | Technical terms: `heard` (as written in the transcript), `term` (written correctly), `en`, `reading` (pinyin for Chinese), `explain` (general background, not from the video), `said` (a sentence, below), `mentions` (passage indices) |
 | `questions` | array of strings | Questions a learner might ask, in English |
+| `screens` | array | What was shown, read by OCR at each new visual and build step: `t`, `scene`, `text` (the lines new on screen at that moment, top to bottom; all of them on a scene's first frame), `subtitles` (burned-in captions, kept apart because they are the speech written out), `image` (the frame, relative to this folder). Machine-read |
 | `summary` | object or null | `tldr` (sentences), `sections` (`title`, `title_en`, `start`, `end`, `sentences`), `writer` (the model), `checker` (`jev+code`, `code`, or `jev` in files from before 2026-10-04) |
 | `timings_ms` | object | Milliseconds per stage, as measured on the machine that built it |
 

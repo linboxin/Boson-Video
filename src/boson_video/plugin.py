@@ -152,6 +152,7 @@ def briefing(name: str, root: Path | None = None) -> str:
     elif tl.transcript:
         lines.append("Summary: not built (no writing key). Write your own from the transcript.")
     lines += ["", f"The picture: {headline} ({stats['new_visuals']} new visuals; video_frames shows them)."]
+    lines.append(f"Screen text: {_screens_status(name, tl, root)}.")
 
     sections = s.sections if s else []
     if sections:
@@ -205,6 +206,7 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
     english = _english(tl)
     chapters = sorted(tl.chapters, key=lambda c: c.start)
     out, used, ci, shown = [], 0, 0, 0
+    screens_due = [sc for sc in tl.screens if sc.text and a <= sc.t < b]
     picked = [i for i, s in enumerate(tl.transcript) if a <= s.start < b or (s.start < a < s.end)]
     for n, i in enumerate(picked):
         seg = tl.transcript[i]
@@ -212,6 +214,10 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
             if chapters[ci].start >= a - 0.5:
                 out.append(f"## [{clock(chapters[ci].start)}] {chapters[ci].title}")
             ci += 1
+        for sc in screens_due:
+            if sc.t <= seg.start + 0.5:
+                out.append(f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}")
+        screens_due = [sc for sc in screens_due if sc.t > seg.start + 0.5]
         en = english[i]
         if lang == "en" and en:
             text = en
@@ -279,12 +285,19 @@ def search(query: str, video: str | None = None, root: Path | None = None, limit
             if video:
                 return f"{name}: {_words_status(name, tl, root)}."
             continue
-        scores = rank(query, [f"{seg.text} {english[i]}" for i, seg in enumerate(tl.transcript)])
+        shown = [sc for sc in tl.screens if sc.text]
+        docs = [f"{seg.text} {english[i]}" for i, seg in enumerate(tl.transcript)] + [sc.text for sc in shown]
+        scores = rank(query, docs)
         for i, score in enumerate(scores):
-            if score > 0:
+            if score <= 0:
+                continue
+            if i < len(tl.transcript):
                 seg = tl.transcript[i]
                 en = f" // {english[i]}" if english[i] else ""
                 hits.append((score, name, f"[{clock(seg.start)}] {seg.text}{en}"))
+            else:
+                sc = shown[i - len(tl.transcript)]
+                hits.append((score, name, f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}"))
         if video and checker.jev_available() and tl.transcript:
             both = [Segment(s.start, s.end, f"{s.text} // {e}" if e else s.text) for s, e in zip(tl.transcript, english)]
             try:
@@ -332,7 +345,10 @@ def rank(query: str, docs: list[str]) -> list[float]:
             share = sum(p in lowered[i] for p in pairs) / len(pairs) if pairs else 0.0
             return share if share >= 0.5 else 0.0
         stem = term[:max(4, len(term) - 2)] if len(term) >= 4 else term
-        return 1.0 if term in words[i] or (len(term) >= 4 and any(w.startswith(stem) for w in words[i])) else 0.0
+        if term in words[i] or (len(term) >= 4 and any(w.startswith(stem) for w in words[i])):
+            return 1.0
+        # OCR drops spaces in small text ("Littleisknown"), so a longer word also counts inside one
+        return 1.0 if len(term) >= 5 and term in lowered[i] else 0.0
 
     scores = [0.0] * len(docs)
     for term in latin + cjk:
@@ -353,7 +369,9 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
         return f"{name}: {_words_status(name, tl, root)}."
     if not at:
         raise PluginError('say which moments the claim rests on, e.g. at=["4:26"]')
-    evidence = sorted({i for t in at for i in _passages_at(tl, parse_time(t))})
+    times = [parse_time(t) for t in at]
+    tl = _with_screens(tl, times)  # what was on screen around those moments counts as evidence too
+    evidence = sorted({i for t in times for i in _passages_at(tl, t)})
     sentence = Sentence(claim.strip(), "", evidence)
     stats = checker.check_sentences(tl, [sentence])
     english = _english(tl)
@@ -378,6 +396,42 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
             "Checked by: Jev (meaning) and code (numbers). A pass means it matches what the transcript says, "
             "which is machine-made, not that it is true.\n"
             f"Passages:\n{passages}")
+
+
+def _with_screens(tl: Timeline, times: list[float], window: float = 15.0) -> Timeline:
+    """A copy whose transcript also holds the screen text shown within `window` s of the times,
+    as passages ("[on screen] ..."), so the checker weighs what was shown with what was said."""
+    near = [sc for sc in tl.screens if sc.text and any(abs(sc.t - t) <= window for t in times)]
+    if not near:
+        return tl
+    english = _english(tl)
+    rows = [(s, e) for s, e in zip(tl.transcript, english)] + [(Segment(sc.t, sc.t + 0.5, f"[on screen] {sc.text}"), "") for sc in near]
+    rows.sort(key=lambda r: r[0].start)
+    copy = Timeline(video=tl.video, frames=tl.frames, sheets=[], scenes=tl.scenes, chapters=tl.chapters)
+    copy.transcript = [r[0] for r in rows]
+    copy.translation = [r[1] for r in rows] if any(english) else []
+    copy.language, copy.transcriber, copy.screens = tl.language, tl.transcriber, tl.screens
+    return copy
+
+
+def _screens_status(name: str, tl: Timeline, root: Path | None) -> str:
+    from . import screens
+
+    if "screens" in tl.timings:
+        if not tl.screens:
+            return "nothing to read (no new visuals with text)"
+        texts = sum(1 for sc in tl.screens if sc.text)
+        subs = sum(1 for sc in tl.screens if sc.subtitles)
+        note = f"; burned-in subtitles at {subs} of them, kept apart" if subs else ""
+        return f"read at {len(tl.screens)} moments, {texts} with text (video_read shows it as ON SCREEN lines){note}"
+    state = jobs.status(name, root)
+    if state.get("stage") == "screens" and state.get("screens_eta"):
+        import time
+
+        return f"being read; ready in about {max(1, int(state['screens_eta'] - time.time()))} s (an estimate)"
+    if not screens.available():
+        return "not read (no OCR on this computer); video_frames shows the pictures"
+    return "not read yet"
 
 
 def videos(root: Path | None = None) -> str:

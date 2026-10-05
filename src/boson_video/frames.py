@@ -73,8 +73,10 @@ def label_at(tl: Timeline, t: float) -> str:
     return ""
 
 
-def grab(tl: Timeline, where: Path, times: list[float], labels: list[str] | None = None) -> list[Shot]:
-    """The picture at each time: full resolution when it can be fetched, else the thumbnail."""
+def grab(tl: Timeline, where: Path, times: list[float], labels: list[str] | None = None,
+         on_shot=None) -> list[Shot]:
+    """The picture at each time: full resolution when it can be fetched, else the thumbnail.
+    `on_shot(shot)` is called as each one is ready (OCR starts on it while the rest download)."""
     out_dir = where / "frames"
     out_dir.mkdir(parents=True, exist_ok=True)
     labels = labels or [label_at(tl, t) for t in times]
@@ -96,11 +98,15 @@ def grab(tl: Timeline, where: Path, times: list[float], labels: list[str] | None
             except (RuntimeError, OSError, subprocess.SubprocessError):
                 pass
         if sharp.exists():
-            return Shot(t, sharp, True, labels[i])
-        thumb = out_dir / f"{int(t * 1000)}-thumb.jpg"
-        return Shot(t, thumb, False, labels[i]) if _thumbnail(tl, where, t, thumb) else None
+            shot = Shot(t, sharp, True, labels[i])
+        else:
+            thumb = out_dir / f"{int(t * 1000)}-thumb.jpg"
+            shot = Shot(t, thumb, False, labels[i]) if _thumbnail(tl, where, t, thumb) else None
+        if shot and on_shot:
+            on_shot(shot)
+        return shot
 
-    with ThreadPoolExecutor(4) as pool:
+    with ThreadPoolExecutor(6 if len(clamped) > 6 else 4) as pool:
         return [s for s in pool.map(one, range(len(clamped))) if s]
 
 
