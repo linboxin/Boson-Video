@@ -36,9 +36,12 @@ _SCALED = re.compile(
 )
 _SCALES = {"thousand": 1e3, "k": 1e3, "千": 1e3, "万": 1e4, "million": 1e6, "mn": 1e6, "m": 1e6,
            "亿": 1e8, "billion": 1e9, "bn": 1e9, "b": 1e9, "trillion": 1e12, "t": 1e12}
-_CN_DIGITS = {"零": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+_CN_DIGITS = {"零": 0, "〇": 0, "幺": 1, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7,
+              "八": 8, "九": 9}
 _CN_UNITS = {"十": 10, "百": 100, "千": 1000, "万": 10**4, "亿": 10**8}
-_CN_NUMBER = re.compile(r"[零一二两三四五六七八九十百千万亿]+")
+# SenseVoice writes spoken numbers in characters: 十八点三 (18.3), 二零二六 (2026, read digit by digit),
+# 幺 for a spoken "one", and a scale after a decimal: 十三点七亿.
+_CN_NUMBER = re.compile(r"([零〇幺一二两三四五六七八九十百千万亿]+)(?:点([零〇幺一二三四五六七八九]+)([万亿])?)?")
 _EN_WORDS = {w: i for i, w in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen "
     "sixteen seventeen eighteen nineteen twenty".split())}
@@ -47,7 +50,10 @@ _EN_NUMBER = re.compile(r"\b(" + "|".join(_EN_WORDS) + r")\b(?:\s+(hundred|thous
 
 
 def _cn_value(text: str) -> int | None:
-    """Value of a Chinese numeral such as 一亿, 三千五百, 两万, 十二; None if it isn't one."""
+    """Value of a Chinese numeral such as 一亿, 三千五百, 两万, 十二, or 二零二六 read digit by digit;
+    None if it isn't one."""
+    if len(text) >= 2 and all(ch in _CN_DIGITS for ch in text):
+        return int("".join(str(_CN_DIGITS[ch]) for ch in text))
     total, section, digit = 0, 0, None
     for ch in text:
         if ch in _CN_DIGITS:
@@ -73,12 +79,17 @@ def _values(text: str) -> list[tuple[str, float]]:
             continue
         out.append((m.group(0).strip(), value * _SCALES.get((m.group(2) or m.group(3) or "").lower(), 1)))
     for m in _CN_NUMBER.finditer(text):
-        word = m.group(0)
-        if not any(ch in _CN_DIGITS or ch == "十" for ch in word) or word == "一":
+        whole, fraction, scale = m.group(1), m.group(2), m.group(3)
+        if not any(ch in _CN_DIGITS or ch == "十" for ch in whole) or (whole in ("一", "幺") and not fraction):
             continue  # 亿 alone (数亿) is not a number, and a lone 一 is usually "a"
-        v = _cn_value(word)
-        if v is not None:
-            out.append((word, float(v)))
+        v = _cn_value(whole)
+        if v is None:
+            continue
+        value = float(v)
+        if fraction:
+            value += float("0." + "".join(str(_CN_DIGITS[ch]) for ch in fraction))
+            value *= _CN_UNITS.get(scale or "", 1)
+        out.append((m.group(0), value))
     for m in _EN_NUMBER.finditer(text):  # "system one", "six thousand"
         scale = {"hundred": 1e2, "thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12}
         out.append((m.group(0), _EN_WORDS[m.group(1).lower()] * scale.get((m.group(2) or "").lower(), 1)))

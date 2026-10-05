@@ -114,13 +114,16 @@ def write(tl: Timeline, names: list[str], effort: str = "low", transport=None, a
 
 
 def _read_output(res: dict) -> dict | None:
-    """The JSON object the schema asks for; Mercury once wrapped it in a list."""
+    """The JSON object the schema asks for. Mercury has wrapped it in a list, and has returned the
+    bare list of sections (no tldr, 2026-10-04, a 35-minute video, twice in a row)."""
     try:
         out = json.loads(res["choices"][0]["message"]["content"])
     except (KeyError, IndexError, TypeError, json.JSONDecodeError):
         return None
     if isinstance(out, list):
-        out = next((x for x in out if isinstance(x, dict) and ("sections" in x or "tldr" in x)), None)
+        whole = next((x for x in out if isinstance(x, dict) and ("sections" in x or "tldr" in x)), None)
+        sections = [x for x in out if isinstance(x, dict) and "sentences" in x]
+        out = whole or ({"tldr": [], "sections": sections} if sections else None)
     return out if isinstance(out, dict) and isinstance(out.get("sections"), list) else None
 
 

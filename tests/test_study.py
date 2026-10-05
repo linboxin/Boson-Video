@@ -107,3 +107,14 @@ def test_answer_when_the_video_doesnt_say():
 
 def test_shouted_english_goes_lower_case_but_acronyms_stay():
     assert sensevoice.tidy("先通过 IBEDDING 转化 TOKEN 和 MOE AI LLM") == "先通过 ibedding 转化 token 和 MOE AI LLM"
+
+
+def test_quiet_cuts_land_in_the_pauses():
+    import numpy as np
+
+    rate = sensevoice.RATE
+    loud = np.ones(rate * 20, dtype=np.float32)
+    loud[int(rate * 9.5):int(rate * 10.5)] = 0  # a pause near the middle
+    edges = sensevoice.quiet_cuts(loud, 2)
+    assert edges[0] == 0 and edges[-1] == len(loud)
+    assert rate * 9.5 <= edges[1] <= rate * 10.5

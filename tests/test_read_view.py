@@ -162,3 +162,21 @@ def test_ask_long_transcript_in_two_passes_and_says_when_absent():
     assert len(fake.calls) == 2 and fake.calls[0][0] == "W000" and len(fake.calls[0]) == 20
     assert all(o.startswith("P") for o in fake.calls[1]) and len(fake.calls[1]) <= 2 * ask_mod.WINDOW
     assert found["moments"][0][0] == 305 and found["verdict"] == "not in this video"
+
+
+def test_a_bare_list_of_sections_is_still_a_summary():
+    reply = {"choices": [{"message": {"content": json.dumps([
+        {"title": "财报", "title_en": "Earnings", "start_id": 0,
+         "sentences": [{"text": "交付了 48 万辆。", "text_en": "480k delivered.", "evidence": [0]}]},
+    ], ensure_ascii=False)}}]}
+    out = writer._read_output(reply)
+    assert out["tldr"] == [] and out["sections"][0]["title_en"] == "Earnings"
+
+
+def test_numbers_as_sensevoice_writes_them():
+    # decimals with 点, years read digit by digit, 幺 for a spoken one
+    assert checker.missing_numbers("Share fell from 25.2% to 18.3%", ["从二十五点二下降到十八点三"]) == []
+    assert checker.missing_numbers("486,532 delivered in Q3 2026", ["二零二六年第三季度", "交付了四十八万六千五百三十二辆"]) == []
+    assert checker.missing_numbers("464,391 produced", ["生产了四六四三九幺"]) == []
+    assert checker.missing_numbers("Storage reached 13.7 GWh", ["储能是十三点七吉瓦时"]) == []
+    assert checker.missing_numbers("Storage reached 15.7 GWh", ["储能是十三点七吉瓦时"]) == ["15.7"]

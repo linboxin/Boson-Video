@@ -70,6 +70,21 @@ def speech_stretches(samples: np.ndarray, max_len: float = 15.0):
     yield from drain()
 
 
+def quiet_cuts(samples: np.ndarray, pieces: int, window: float = 5.0) -> list[int]:
+    """Sample offsets splitting the audio into `pieces`, each moved to the quietest 0.2 s within
+    `window` seconds, so the voice detector never sees a word cut in half."""
+    edges = [0]
+    hop = RATE // 5
+    for k in range(1, pieces):
+        target = len(samples) * k // pieces
+        lo, hi = max(edges[-1] + hop, target - int(window * RATE)), min(len(samples) - hop, target + int(window * RATE))
+        if hi <= lo:
+            continue
+        frames = samples[lo:hi - (hi - lo) % hop].reshape(-1, hop)
+        edges.append(lo + int(np.argmin((frames ** 2).mean(axis=1))) * hop + hop // 2)
+    return edges + [len(samples)]
+
+
 def tidy(text: str) -> str:
     """English SenseVoice shouts in lower case: long words ("ASSISTANT"), and short ones beside a
     lower-case word ("refusal IN language" -> "refusal in language"). Short ones on their own
@@ -107,11 +122,19 @@ def transcribe(wav: Path, locale: str | None = None, threads: int | None = None)
         recognizer.decode_stream(stream)
         return Segment(round(start, 2), round(start + len(audio) / RATE, 2), tidy(stream.result.text))
 
+    samples = _read(wav)
     workers = threads or max(1, min(10, (os.cpu_count() or 4) - 2))
-    with ThreadPoolExecutor(workers) as pool:
-        jobs = [pool.submit(one, start, audio) for start, audio in speech_stretches(_read(wav))]
+    # The voice detector releases the GIL, so pieces of a long recording are searched at once
+    # (35 min: 9.7 s in one piece, 4.0 s in eight, 2026-10-04).
+    edges = quiet_cuts(samples, max(1, min(8, len(samples) // (60 * RATE))))
+    with ThreadPoolExecutor(workers) as pool, ThreadPoolExecutor(len(edges) - 1) as finders:
+
+        def find(lo: int, hi: int):
+            return [pool.submit(one, lo / RATE + start, audio) for start, audio in speech_stretches(samples[lo:hi])]
+
+        jobs = [j for found in finders.map(find, edges[:-1], edges[1:]) for j in found]
         vad_ms = (time.perf_counter() - clock) * 1000 - load_ms
-        segments = [seg for seg in (j.result() for j in jobs) if seg.text]
+        segments = sorted((seg for seg in (j.result() for j in jobs) if seg.text), key=lambda s: s.start)
     total = (time.perf_counter() - clock) * 1000
     return segments, {"model load": round(load_ms, 1), "voice detection": round(vad_ms, 1),
                       "speech": round(total - load_ms - vad_ms, 1)}
