@@ -37,7 +37,9 @@ def post(request: dict, transport=None) -> dict:
     key = os.environ.get("INCEPTION_API_KEY")
     if not key:
         raise MercuryError("no INCEPTION_API_KEY in .env (Mercury writes the text)")
-    with httpx.Client(timeout=180, transport=transport) as client:
+    # Mercury writes an hour-long video's summary in about 9 s; a call still going after a minute
+    # is stuck (one took 126 s, 2026-10-04), so it is dropped and tried again.
+    with httpx.Client(timeout=60, transport=transport) as client:
         r = None
         for tries in range(3):
             try:

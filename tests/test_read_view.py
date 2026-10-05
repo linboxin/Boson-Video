@@ -203,3 +203,16 @@ def test_planted_errors_the_free_number_check_catches(monkeypatch):
         checker.check_sentences(tl, [s])
         caught = s.check == "unsupported"
         assert caught == (c["planted"] in ("number", "date")), c["claim"]
+
+
+def test_a_models_size_spoken_as_words():
+    assert checker.missing_numbers("Llama 3 8B outperformed it", ["from LAMA three, eight B, and other models"]) == []
+
+
+def test_a_number_from_a_name_in_the_title_needs_no_passage(monkeypatch):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    tl = _timeline(3)
+    tl.video.title = "Stanford CS329A Self-Improving AI Agents"
+    s = Sentence("This CS329A lecture covers 100 things", "", [1])
+    checker.check_sentences(tl, [s])
+    assert s.check == ""  # 329 is in the title, 100 is in passage 1: nothing missing

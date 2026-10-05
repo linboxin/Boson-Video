@@ -5,8 +5,10 @@ the same picture and are skipped). Those frames are fetched at full resolution (
 read by OCR (ocr.py). Two rules keep the text honest:
 
 - **Burned-in subtitles are kept apart.** They are the speech written out, not what the picture
-  shows: a centred line in the bottom band of the frame, in words rather than numbers. They go to
-  `Screen.subtitles` (useful to correct and score the transcript), never into `Screen.text`.
+  shows: a centred line in the bottom band of the frame, in words rather than numbers, that
+  matches what is being said around then (slide footers sit in the same place: author lists and
+  paper citations on a Stanford lecture, 2026-10-04). They go to `Screen.subtitles` (useful to
+  correct and score the transcript), never into `Screen.text`.
 - **A build step is credited only with what it adds.** A slide that builds line by line repeats
   its earlier lines on every frame; each frame keeps the lines new since the previous frame of the
   same scene, so the document says when each line appeared.
@@ -23,6 +25,8 @@ from . import ocr
 from .timeline import Screen, Timeline
 
 MIN_SCORE = 0.6  # OCR confidence below this is usually noise
+SAID_WINDOW = 8.0  # a subtitle is shown within this many seconds of being said
+_WORDS = re.compile(r"[a-z0-9']{2,}")
 SUBTITLE_BAND = 0.82  # a subtitle's middle sits below this share of the frame's height
 _CJK = re.compile(r"[㐀-鿿]")
 _KEY = re.compile(r"[\W_]+")
@@ -50,7 +54,10 @@ def read(tl: Timeline, where: Path) -> tuple[list[Screen], dict]:
         row = texts.get(str(sh.path))
         if not row:
             continue
-        shown, subtitles = split_lines(row["lines"], row["w"], row["h"])
+        shown, candidates = split_lines(row["lines"], row["w"], row["h"])
+        said = " ".join(s.text for s in tl.transcript if s.start - SAID_WINDOW <= sh.t <= s.end + SAID_WINDOW)
+        subtitles = [c for c in candidates if spoken(c, said)]
+        shown += [c for c in candidates if c not in subtitles]
         previous = seen.get(m.scene, set()) if m.label == "build step" else set()
         new = [line for line in shown if _KEY.sub("", line.lower()) not in previous]
         seen[m.scene] = {_KEY.sub("", line.lower()) for line in shown}
@@ -73,6 +80,18 @@ def split_lines(lines: list, w: int, h: int) -> tuple[list[str], list[str]]:
         else:
             shown.append(text.strip())
     return shown, subtitles
+
+
+def spoken(line: str, said: str, share: float = 0.5) -> bool:
+    """Whether most of the line is being said: its Chinese characters, or its words, in the speech."""
+    said = said.lower()
+    cjk = _CJK.findall(line)
+    if cjk:
+        return sum(ch in said for ch in cjk) >= share * len(cjk)
+    # English needs more: a chart axis ("Number of Samples (k)") or a footnote can share a few words
+    # with the speech (2026-10-04); real subtitles match about as well as the transcript is right.
+    words = _WORDS.findall(line.lower())
+    return len(words) >= 4 and sum(w in said for w in words) >= max(share, 0.7) * len(words)
 
 
 def available() -> bool:

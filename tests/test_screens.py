@@ -27,6 +27,15 @@ def test_subtitles_are_kept_apart_from_what_the_picture_shows():
     assert subtitles == ["这个差距用一个叫做KL散度的公式来量化"]
 
 
+def test_a_footer_is_not_a_subtitle_unless_it_is_being_said():
+    said = "这个差距用一个叫做 K L 散多的公式来量化 so the coverage follows a power law"
+    assert screens.spoken("这个差距用一个叫做KL散度的公式来量化", said)
+    assert screens.spoken("the coverage follows a power law", said)
+    assert not screens.spoken("RylanSchaeffer, JoshuaKazdan, JohnHughes, JordanJuravsky", said)
+    assert not screens.spoken("Number of Samples (k)", said)
+    assert not screens.spoken("number of samples", "as we scaled the number of samples")  # too short to tell
+
+
 def _tl() -> Timeline:
     import io
 

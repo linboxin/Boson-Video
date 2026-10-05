@@ -50,7 +50,8 @@ _EN_WORDS = {w: i for i, w in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen "
     "sixteen seventeen eighteen nineteen twenty".split())}
 _EN_WORDS.update({"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90})
-_EN_NUMBER = re.compile(r"\b(" + "|".join(_EN_WORDS) + r")\b(?:\s+(hundred|thousand|million|billion|trillion)\b)?", re.I)
+# "eight B" is how speech recognition writes a model's "8B" (Llama 3 8B, 2026-10-04)
+_EN_NUMBER = re.compile(r"\b(" + "|".join(_EN_WORDS) + r")\b(?:\s+(hundred|thousand|million|billion|trillion|b|m|k)\b)?", re.I)
 
 
 def _cn_value(text: str) -> int | None:
@@ -101,7 +102,8 @@ def _values(text: str) -> list[tuple[str, float]]:
             value *= _CN_UNITS.get(scale or "", 1)
         out.append((m.group(0), value))
     for m in _EN_NUMBER.finditer(text):  # "system one", "six thousand"
-        scale = {"hundred": 1e2, "thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12}
+        scale = {"hundred": 1e2, "thousand": 1e3, "million": 1e6, "billion": 1e9, "trillion": 1e12,
+                 "k": 1e3, "m": 1e6, "b": 1e9}
         out.append((m.group(0), _EN_WORDS[m.group(1).lower()] * scale.get((m.group(2) or "").lower(), 1)))
     return out
 
@@ -200,6 +202,7 @@ def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 
                 s.check, s.check_p = "uncited", 1.0
                 continue
             s.evidence, missing = repair_evidence(s.text, s.evidence, texts, strict=True)
+            missing = [m for m in missing if not in_title(m, tl)]
             if missing:
                 s.check, s.check_p, s.check_note = "unsupported", 1.0, f"{', '.join(missing)} isn't in the cited passages"
         checked_by = "code"
@@ -207,6 +210,12 @@ def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 
     for s in sentences:
         counts[s.check] = counts.get(s.check, 0) + 1
     return {"seconds": round(time.perf_counter() - started, 2), "counts": counts, "checked_by": checked_by}
+
+
+def in_title(written: str, tl: Timeline) -> bool:
+    """A number that is part of a name in the video's title ("CS329A", "GPT-4"): the speaker needn't say it."""
+    digits = "".join(ch for ch in written if ch.isdigit())
+    return bool(digits) and digits in "".join(ch if ch.isdigit() else " " for ch in tl.video.title).split()
 
 
 def both_orders(res, name: str) -> dict[str, float]:
@@ -240,6 +249,7 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
         choice = max(probs, key=probs.get)
         sentence.check = VERDICTS[choice]
         sentence.check_p = round(probs[choice], 3)
+        missing = [m for m in missing if not in_title(m, tl)]
         if missing and sentence.check == "supported":
             sentence.check, sentence.check_note = "unsupported", f"{', '.join(missing)} isn't in the cited passages"
 
