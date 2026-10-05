@@ -21,7 +21,7 @@ uv run boson-video ask zjkBMFhNj_g "how much does it cost to train llama 2?"   #
 uv run boson-video serve --open qbReD1cGykQ    # the page with the video beside it, and asking
 ```
 
-Each run writes `out/<video id>/index.html` (one self-contained file) and
+Each run writes `~/.boson-video/<video id>/index.html` (one self-contained file) and
 `timeline.json` (frames, scenes, chapters, heatmap, transcript and timings, for the
 stages that come next). The page is written twice: with the scenes, then with the words.
 The words use Apple's on-device transcriber on a Mac (macOS 26 and Xcode's command line
@@ -39,7 +39,7 @@ AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search ad
 | --- | --- |
 | `video_open(video)` | A briefing within seconds: length, language, chapters, what the picture does, the summary and key terms if built, how to go on. A new video builds in the background (the map in about 2 s, the words in 10–50 s) |
 | `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, up to about 12k tokens a reply |
-| `video_frames(video, at \| start–end)` | Up to 6 frames, full resolution, at the new visuals the scene map found (or exact moments), each with what was said then |
+| `video_frames(video, at \| start–end)` | 6 frames by default, up to 12, full resolution, at the new visuals the scene map found (or exact moments), each with what was said then |
 | `video_search(query, video?)` | Where something is said, in one video or all of them |
 | `video_check(video, claim, at)` | The claim against what was said at those moments, and which checker judged it |
 | `video_list()` | The videos opened so far |
@@ -47,7 +47,7 @@ AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search ad
 Claude Code:
 
 ```bash
-claude mcp add boson-video -e BOSON_VIDEO_HOME=/path/to/Boson-Video/out -- uv --directory /path/to/Boson-Video run boson-video mcp
+claude mcp add boson-video -- uv --directory /path/to/Boson-Video run boson-video mcp
 ```
 
 Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
@@ -57,15 +57,14 @@ Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
   "mcpServers": {
     "boson-video": {
       "command": "uv",
-      "args": ["--directory", "/path/to/Boson-Video", "run", "boson-video", "mcp"],
-      "env": { "BOSON_VIDEO_HOME": "/path/to/Boson-Video/out" }
+      "args": ["--directory", "/path/to/Boson-Video", "run", "boson-video", "mcp"]
     }
   }
 }
 ```
 
-`BOSON_VIDEO_HOME` is where videos are kept (default `~/.boson-video`); pointing it at `out`
-shares them with the command line and the page. Keys are read from the project's `.env`.
+Videos are kept in one place for the command line, the page and the plugin:
+`BOSON_VIDEO_HOME`, by default `~/.boson-video`. Keys are read from the project's `.env`.
 `uv run python scripts/mcp_smoke.py <video> [--no-keys]` runs the plugin the way an AI app
 does and calls every tool. The format of `timeline.json` is in
 [docs/timeline-format.md](docs/timeline-format.md).

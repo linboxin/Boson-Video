@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 
-from . import library, youtube
+from . import library
 from .ask import AskError, ask
 from .audio import AudioError
 from .checker import CheckError
@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         description="Read a video like a document: scenes in about a second, then the words.",
     )
     ap.add_argument("source", help="YouTube link or id, or a local video file")
-    ap.add_argument("-o", "--out", default="out", help="output folder (default: ./out)")
+    ap.add_argument("-o", "--out", help="where videos are kept (default: BOSON_VIDEO_HOME, else ~/.boson-video)")
     ap.add_argument("--level", type=int, help="storyboard level to use (default: the sharpest)")
     ap.add_argument("--no-words", action="store_true", help="scenes only; skip the speech")
     ap.add_argument("--lang", help="speech language, e.g. zh_CN or en_US (default: guessed from the title)")
@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"boson-video: {e}", file=sys.stderr)
         return 1
 
-    folder = Path(args.out) / (tl.video.id or Path(tl.video.url).stem)
+    folder = _home(args) / library.key(args.source)
     page = _write(tl, folder)
     v = tl.video
     headline, _ = profile(tl.scenes, v.duration)
@@ -127,14 +127,10 @@ def ask_main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="boson-video ask", description="Find the moment in a video that answers a question.")
     ap.add_argument("source", help="the video, as given to boson-video before (its page must exist)")
     ap.add_argument("question")
-    ap.add_argument("-o", "--out", default="out", help="output folder (default: ./out)")
+    ap.add_argument("-o", "--out", help="where videos are kept (default: BOSON_VIDEO_HOME, else ~/.boson-video)")
     args = ap.parse_args(argv)
     load_env()
-    try:
-        key = youtube.parse_video_id(args.source)
-    except YouTubeError:
-        key = Path(args.source).stem
-    path = Path(args.out) / key / "timeline.json"
+    path = _home(args) / library.key(args.source) / "timeline.json"
     if not path.exists():
         print(f"boson-video: run `boson-video {args.source}` first (no {path})", file=sys.stderr)
         return 1
@@ -160,27 +156,29 @@ def serve_main(argv: list[str]) -> int:
     from .server import serve
 
     ap = argparse.ArgumentParser(prog="boson-video serve", description="Serve the pages on this computer, with asking.")
-    ap.add_argument("-o", "--out", default="out", help="output folder (default: ./out)")
+    ap.add_argument("-o", "--out", help="where videos are kept (default: BOSON_VIDEO_HOME, else ~/.boson-video)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", metavar="VIDEO", nargs="?", const="", help="open the library, or one video, in the browser")
     args = ap.parse_args(argv)
     load_env()
-    httpd = serve(Path(args.out), args.port)
+    httpd = serve(_home(args), args.port)
     base = f"http://127.0.0.1:{args.port}/"
-    print(f"serving {Path(args.out).resolve()} at {base} (Ctrl+C stops)")
+    print(f"serving {_home(args).resolve()} at {base} (Ctrl+C stops)")
     if args.open is not None:
         target = base
         if args.open:
-            try:
-                target += f"v/{youtube.parse_video_id(args.open)}/"
-            except YouTubeError:
-                target += f"v/{Path(args.open).stem}/"
+            target += f"v/{library.key(args.open)}/"
         webbrowser.open(target)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     return 0
+
+
+def _home(args) -> Path:
+    """Where videos are kept: -o if given, else the same place the plugin uses."""
+    return Path(args.out).expanduser() if args.out else library.home()
 
 
 def _clock(t: float) -> str:

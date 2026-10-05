@@ -7,7 +7,7 @@ browser.
 
 ## Commands
 
-- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--no-summary] [--lang zh_CN] [-o out]`
+- `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--no-summary] [--lang zh_CN] [-o folder]` (videos are kept in `BOSON_VIDEO_HOME`, default `~/.boson-video`, for the CLI, the page and the plugin alike)
 - `uv run boson-video ask <video> "question"`: the moment that answers it (needs the page to exist)
 - `uv run boson-video serve [--open <video>]`: the pages on 127.0.0.1:8765 with the video playing beside them and a working ask box
 - `uv run boson-video mcp`: the plugin (MCP over stdio) for Claude Code, Claude Desktop, Cursor, Codex; setup in the README

@@ -51,17 +51,34 @@ def video_frames(video: str, at: list[str] | None = None, start: str | None = No
                  limit: int = 6) -> list:
     """Look at the video. Either exact moments, `at=["4:26", "5:10"]`, or the new visuals the scene
     map found between `start` and `end` (new scenes and the build steps of slides and diagrams;
-    repeats of an earlier picture are skipped). At most 6 frames, at full resolution when they can
-    be fetched, each with what was said around then.
+    repeats of an earlier picture are skipped). `limit` frames (default 6, at most 12; more than 6
+    come a little smaller), at full resolution when they can be fetched, each with what was said
+    around then.
     """
     try:
         result = plugin.frames(video, at, start, end, limit)
     except plugin.PluginError as e:
         return [str(e)]
     out: list = [result.header]
+    small = len(result.shots) > 6  # many frames go out at 960 px (about 700 tokens each instead of 1,200)
     for caption, path in result.shots:
-        out += [caption, Image(path=path)]
+        out += [caption, _image(path, 960 if small else None)]
     return out
+
+
+def _image(path, width: int | None) -> Image:
+    if not width:
+        return Image(path=path)
+    from io import BytesIO
+
+    from PIL import Image as PILImage
+
+    with PILImage.open(path) as im:
+        if im.width > width:
+            im = im.resize((width, round(im.height * width / im.width)))
+        buf = BytesIO()
+        im.convert("RGB").save(buf, "JPEG", quality=85)
+    return Image(data=buf.getvalue(), format="jpeg")
 
 
 @server.tool(structured_output=False)

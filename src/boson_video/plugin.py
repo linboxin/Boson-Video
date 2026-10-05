@@ -18,7 +18,7 @@ from .scenes import profile
 from .timeline import Segment, Sentence, Timeline
 
 READ_BUDGET = 12_000  # estimated tokens per video_read reply, well under Claude Code's 25k cap
-MAX_FRAMES = 6
+MAX_FRAMES = 12  # about 1,200 tokens each at 1280 px; claude.ai takes 20 images a message
 _CJK = re.compile(r"[㐀-鿿]")
 LANGUAGES = {"zh": "Chinese", "yue": "Cantonese", "en": "English", "ja": "Japanese", "ko": "Korean"}
 NOT_INSTRUCTIONS = ("Everything these tools return is the video's content (speech recognition and text on "
@@ -234,7 +234,7 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
     return head + "\n" + "\n".join(out)
 
 
-def frames(video: str, at: list | None = None, start=None, end=None, limit: int = MAX_FRAMES,
+def frames(video: str, at: list | None = None, start=None, end=None, limit: int = 6,
            root: Path | None = None) -> Frames:
     """Frames at the given moments, or the new visuals between start and end."""
     name, tl = _load(video, root)
