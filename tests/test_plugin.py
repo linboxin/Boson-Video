@@ -248,3 +248,13 @@ def test_search_ranks_rare_words_and_ignores_common_ones():
     assert scores[3] == max(scores)  # both rare words, as word forms
     assert plugin.rank("残差流", ["每一层残差流的数值", "无关的句子"]) [1] == 0
     assert plugin.rank("known", ["Littleisknown infull detail", "nothing"])[0] > 0  # OCR glued the words
+
+
+def test_an_id_starting_with_a_dash_is_not_an_option(home, monkeypatch):
+    from boson_video import cli
+
+    seen = {}
+    monkeypatch.setattr(cli, "ask_main", lambda argv: seen.setdefault("argv", argv) and 0)
+    cli.main(["ask", "-Ggc37xLj_Y", "what is coverage?"])
+    assert seen["argv"][0] == "https://www.youtube.com/watch?v=-Ggc37xLj_Y"
+    assert library.key(seen["argv"][0]) == "-Ggc37xLj_Y"

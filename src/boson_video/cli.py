@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import webbrowser
@@ -33,6 +34,9 @@ from .youtube import YouTubeError
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    # A YouTube id can start with a dash (-Ggc37xLj_Y), which the option parser would take for an
+    # option; as a full link it can't be mistaken.
+    argv = [f"https://www.youtube.com/watch?v={a}" if re.fullmatch(r"-[A-Za-z0-9_-]{10}", a) else a for a in argv]
     for stream in (sys.stdout, sys.stderr):  # Chinese titles on a Windows console
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="replace")

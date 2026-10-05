@@ -227,7 +227,9 @@ JS = """
     const si = last(D.sections, pos), ci = last(D.chapters, pos);
     $("ro-where").textContent = si >= 0 ? (mode() !== "orig" && D.sections[si][2] ? D.sections[si][2] : D.sections[si][1])
       : ci >= 0 ? D.chapters[ci][1] : "";
-    const gi = last(D.segs, pos), near = gi >= 0 && pos <= D.segs[gi][1] + 3;
+    let gi = last(D.segs, pos);
+    if (gi < 0 && D.segs.length && D.segs[0][0] - pos < 15) gi = 0;  // before the first words: show them
+    const near = gi >= 0 && (gi === 0 || pos <= D.segs[gi][1] + 3);
     $("ro-said").textContent = near && mode() !== "en" ? D.segs[gi][2] : (near && !D.en[gi] ? D.segs[gi][2] : "");
     $("ro-en").textContent = near && mode() !== "orig" ? (D.en[gi] || "") : "";
     if (mode() === "en" && near && D.en[gi]) $("ro-said").textContent = D.en[gi], $("ro-en").textContent = "";
@@ -286,7 +288,12 @@ JS = """
       player = new YT.Player("player", {
         videoId: D.yt,
         playerVars: { playsinline: 1, rel: 0, start: Math.floor(D.start) },
-        events: { onStateChange: e => { playing = e.data === 1; } },
+        events: {
+          onStateChange: e => { playing = e.data === 1; },
+          // 101/150: the owner doesn't allow playback on other sites (a Stanford lecture, 2026-10-04).
+          // Drop the player: the frame preview comes back and times open on YouTube instead.
+          onError: e => { if ([100, 101, 150, 153].includes(e.data)) { document.body.classList.remove("has-player"); player = null; } },
+        },
       });
     };
     const s = document.createElement("script");
