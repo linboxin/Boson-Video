@@ -263,7 +263,9 @@ def frames(video: str, at: list | None = None, start=None, end=None, limit: int 
     for sh in shots:
         said = _said_at(tl, sh.t, english)
         quality = "full resolution" if sh.sharp else "thumbnail only (full resolution couldn't be fetched)"
-        out.append((f"[{clock(sh.t)}] {sh.label}, {quality}." + (f" Said around then: {said}" if said else ""), sh.path))
+        shown = _screen_text_at(tl, sh.t)
+        out.append((f"[{clock(sh.t)}] {sh.label}, {quality}." + (f" On screen (read by OCR): {shown}" if shown else "")
+                    + (f" Said around then: {said}" if said else ""), sh.path))
     header = f"{tl.video.title}: {len(out)} frame{'s' if len(out) != 1 else ''}. {NOT_INSTRUCTIONS}"
     return Frames(header, out)
 
@@ -396,6 +398,16 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
             "Checked by: Jev (meaning) and code (numbers). A pass means it matches what the transcript says, "
             "which is machine-made, not that it is true.\n"
             f"Passages:\n{passages}")
+
+
+def _screen_text_at(tl: Timeline, t: float) -> str:
+    """Everything on screen at t: the lines of its scene read up to then (a build step only stores
+    what it added)."""
+    here = next((s for s in tl.scenes if s.start <= t < s.end), None)
+    if here is None:
+        return ""
+    lines = [sc.text for sc in tl.screens if sc.scene == here.index and sc.t <= t + 1 and sc.text]
+    return " | ".join(" | ".join(x.splitlines()) for x in lines)
 
 
 def _with_screens(tl: Timeline, times: list[float], window: float = 15.0) -> Timeline:

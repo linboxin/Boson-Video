@@ -85,6 +85,10 @@ def test_a_build_step_is_credited_only_with_its_new_lines(tmp_path, monkeypatch)
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
+    def offline(tl, where):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(frames_mod, "_source", offline)  # thumbnails only; no YouTube in tests
     monkeypatch.setattr(screens, "available", lambda: True)
     monkeypatch.setenv("BOSON_VIDEO_HOME", str(tmp_path))
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
@@ -122,3 +126,9 @@ def test_real_ocr_reads_a_drawn_slide(tmp_path):
     rows = ocr.read([path])
     texts = [ln[4] for ln in rows[str(path)]["lines"]]
     assert any("Refusal" in t for t in texts) and any("0.08" in t for t in texts), texts
+
+
+def test_a_frame_caption_carries_its_screen_text(home):
+    shots = plugin.frames("abcdefghijk", at=["0:11"])
+    caption = shots.shots[0][0] if shots.shots else ""
+    assert "On screen (read by OCR): KL = 0.08 | KL = 2.71" in caption  # the scene's lines up to then
