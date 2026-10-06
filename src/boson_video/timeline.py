@@ -151,6 +151,24 @@ class Screen:
 
 
 @dataclass
+class Moment:
+    """One span the page and the plugin cite: the words, the picture's code, and the frame.
+
+    `code` is state (the picture holds), delta (new lines on a build), trajectory (the motion
+    is the content), or seek (open the original range; the frame could not be read).
+    """
+
+    start: float
+    end: float
+    code: str
+    scene: int
+    t: float  # the frame that represents this span
+    passages: list[int] = field(default_factory=list)  # indices into Timeline.transcript
+    text: str = ""  # lines new at t; empty when the picture held and showed nothing new
+    image: str = ""  # full-resolution frame, relative to the video's folder
+
+
+@dataclass
 class Timeline:
     video: Video
     frames: list[Frame]
@@ -166,6 +184,7 @@ class Timeline:
     terms: list[Term] = field(default_factory=list)  # the glossary, in order of first mention
     questions: list[str] = field(default_factory=list)  # questions a learner might ask, in English
     screens: list[Screen] = field(default_factory=list)  # what was shown, read at the new visuals
+    moments: list[Moment] = field(default_factory=list)  # words joined to a picture code and a frame
     summary: Summary | None = None
     timings: dict[str, float] = field(default_factory=dict)  # milliseconds per stage
 
@@ -191,6 +210,7 @@ class Timeline:
             "terms": [asdict(t) for t in self.terms],
             "questions": self.questions,
             "screens": [asdict(s) for s in self.screens],
+            "moments": [asdict(m) for m in self.moments],
             "summary": asdict(self.summary) if self.summary else None,
             "sheets": [{"width": s.width, "height": s.height} for s in self.sheets],
             "timings_ms": self.timings,
@@ -228,6 +248,7 @@ class Timeline:
             terms=[Term(**{**t, "said": sentence(t["said"])}) for t in data.get("terms", [])],
             questions=data.get("questions", []),
             screens=[Screen(**s) for s in data.get("screens", [])],
+            moments=[Moment(**m) for m in data.get("moments", [])],
             summary=summary,
             timings=data.get("timings_ms", {}),
         )

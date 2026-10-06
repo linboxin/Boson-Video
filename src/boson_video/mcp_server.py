@@ -44,8 +44,10 @@ def video_open(video: str) -> str:
 @server.tool(structured_output=False, annotations=READ_ONLY)
 def video_read(video: str, start: str = "0:00", end: str | None = None, lang: str = "both") -> str:
     """Read the transcript between `start` and `end` (times like "4:26" or "1:02:03"; no end = to the
-    end of the video). Each line is "[m:ss] original // English". `lang`: "both" (default),
-    "orig" or "en". Long stretches stop at about 12k tokens and say how to continue.
+    end of the video). Each spoken line is "[m:ss] original // English". A picture change is a moment
+    on its own line, "[m:ss] state|delta|trajectory|seek: the lines new on screen"; video_frames
+    with at=["m:ss"] shows its frame.
+    `lang`: "both" (default), "orig" or "en". Long stretches stop at about 12k tokens and say how to continue.
     """
     return _safe(plugin.read, video, start, end, lang)
 
@@ -56,8 +58,8 @@ def video_frames(video: str, at: list[str] | None = None, start: str | None = No
     """Look at the video. Either exact moments, `at=["4:26", "5:10"]`, or the new visuals the scene
     map found between `start` and `end` (new scenes and the build steps of slides and diagrams;
     repeats of an earlier picture are skipped). `limit` frames (default 6, at most 12; more than 6
-    come a little smaller), at full resolution when they can be fetched, each with what was said
-    around then.
+    come a little smaller), at full resolution when they can be fetched, each citing the moment
+    and what was said around then.
     """
     try:
         result = plugin.frames(video, at, start, end, limit)
@@ -87,18 +89,19 @@ def _image(path, width: int | None) -> Image:
 
 @server.tool(structured_output=False, annotations=READ_ONLY)
 def video_search(query: str, video: str | None = None) -> str:
-    """Find where something is said, in one video (`video`) or in every video opened so far.
-    Matches words in the original and the English; with a Jev key and one video, Jev's pick of the
-    answering moment comes first.
+    """Find where something is said or shown, in one video (`video`) or in every video opened so far.
+    A hit on the picture cites the same moment as video_read. With a Jev key and one video, Jev's
+    pick of the answering passage comes first.
     """
     return _safe(plugin.search, query, video)
 
 
 @server.tool(structured_output=False, annotations=READ_ONLY)
 def video_check(video: str, claim: str, at: list[str]) -> str:
-    """Check a claim about the video against what was said at the moments it rests on (`at`, times
-    like ["4:26"]) and the passages around them. With a Jev key, Jev judges the meaning and code
-    checks every number; without one, only the numbers are checked. Says which checked it.
+    """Check a claim about the video against what was said and shown at the moments it rests on
+    (`at`, times like ["4:26"]) and the passages around them. A number that appears only on screen
+    is checked against that moment. With a Jev key, Jev judges the meaning and code checks every
+    number; without one, only the numbers are checked. Says which checked it.
     """
     return _safe(plugin.check, video, claim, at)
 

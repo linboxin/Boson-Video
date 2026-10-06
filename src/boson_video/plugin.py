@@ -152,7 +152,7 @@ def briefing(name: str, root: Path | None = None) -> str:
     elif tl.transcript:
         lines.append("Summary: not built (no writing key). Write your own from the transcript.")
     lines += ["", f"The picture: {headline} ({stats['new_visuals']} new visuals; video_frames shows them)."]
-    lines.append(f"Screen text: {_screens_status(name, tl, root)}.")
+    lines.append(_moments_status(name, tl, root))
 
     sections = s.sections if s else []
     if sections:
@@ -206,7 +206,7 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
     english = _english(tl)
     chapters = sorted(tl.chapters, key=lambda c: c.start)
     out, used, ci, shown = [], 0, 0, 0
-    screens_due = [sc for sc in tl.screens if sc.text and a <= sc.t < b]
+    pictures = _pictures(tl, a, b)
     picked = [i for i, s in enumerate(tl.transcript) if a <= s.start < b or (s.start < a < s.end)]
     for n, i in enumerate(picked):
         seg = tl.transcript[i]
@@ -214,10 +214,9 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
             if chapters[ci].start >= a - 0.5:
                 out.append(f"## [{clock(chapters[ci].start)}] {chapters[ci].title}")
             ci += 1
-        for sc in screens_due:
-            if sc.t <= seg.start + 0.5:
-                out.append(f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}")
-        screens_due = [sc for sc in screens_due if sc.t > seg.start + 0.5]
+        while pictures and pictures[0][0] <= seg.start + 0.5:
+            _, line = pictures.pop(0)
+            out.append(line)
         en = english[i]
         if lang == "en" and en:
             text = en
@@ -233,11 +232,38 @@ def read(video: str, start="0:00", end=None, lang: str = "both", root: Path | No
             break
         out.append(line)
         shown += 1
+    if shown == len(picked):  # a picture after the last spoken line still belongs in this range
+        out.extend(line for _, line in pictures)
     if not picked:
         return f"{name}: nothing said between {clock(a)} and {clock(b)}."
     head = (f"{tl.video.title} [{clock(a)}–{clock(min(b, tl.video.duration))}], machine transcript"
             + (f" ({tl.transcriber})" if tl.transcriber else "") + (", English by Mercury" if any(english) and lang != "orig" else ""))
     return head + "\n" + "\n".join(out)
+
+
+def picture_line(m) -> str:
+    """The one line read, search, and check use for a moment. No file paths: the AI may be far
+    from this computer, and video_frames(at=[time]) shows any moment's frame."""
+    span = f"{clock(m.start)}–{clock(m.end)}"
+    if m.code == "seek":
+        return f"[{clock(m.t)}] seek: the picture changed here and no frame of it could be read; watch {span}"
+    body = m.text.replace("\n", " | ") if m.text else "(a picture with no text read from it)"
+    if m.code == "trajectory":
+        body += f" (in motion; worth watching {span})"
+    return f"[{clock(m.t)}] {m.code}: {body}"
+
+
+def shown(m) -> bool:
+    """A moment worth a line of its own: something read from it, a frame of it, or a gap in it."""
+    return bool(m.text or m.image) or m.code == "seek"
+
+
+def _pictures(tl: Timeline, start: float, end: float) -> list[tuple[float, str]]:
+    """Picture lines in [start, end): the moments when the document has them, else the screen text."""
+    if tl.moments:
+        return [(m.t, picture_line(m)) for m in tl.moments if shown(m) and start <= m.t < end]
+    return [(sc.t, f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}")
+            for sc in tl.screens if sc.text and start <= sc.t < end]
 
 
 def frames(video: str, at: list | None = None, start=None, end=None, limit: int = 6,
@@ -263,8 +289,8 @@ def frames(video: str, at: list | None = None, start=None, end=None, limit: int 
     for sh in shots:
         said = _said_at(tl, sh.t, english)
         quality = "full resolution" if sh.sharp else "thumbnail only (full resolution couldn't be fetched)"
-        shown = _screen_text_at(tl, sh.t)
-        out.append((f"[{clock(sh.t)}] {sh.label}, {quality}." + (f" On screen (read by OCR): {shown}" if shown else "")
+        cited = _cite_at(tl, sh.t)
+        out.append((f"[{clock(sh.t)}] {sh.label}, {quality}." + (f" {cited}" if cited else "")
                     + (f" Said around then: {said}" if said else ""), sh.path))
     header = f"{tl.video.title}: {len(out)} frame{'s' if len(out) != 1 else ''}. {NOT_INSTRUCTIONS}"
     return Frames(header, out)
@@ -287,8 +313,13 @@ def search(query: str, video: str | None = None, root: Path | None = None, limit
             if video:
                 return f"{name}: {_words_status(name, tl, root)}."
             continue
-        shown = [sc for sc in tl.screens if sc.text]
-        docs = [f"{seg.text} {english[i]}" for i, seg in enumerate(tl.transcript)] + [sc.text for sc in shown]
+        pictured = [m for m in tl.moments if m.text]
+        if pictured:
+            extra = [(picture_line(m), m.text) for m in pictured]
+        else:
+            extra = [(f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}", sc.text)
+                     for sc in tl.screens if sc.text]
+        docs = [f"{seg.text} {english[i]}" for i, seg in enumerate(tl.transcript)] + [text for _, text in extra]
         scores = rank(query, docs)
         for i, score in enumerate(scores):
             if score <= 0:
@@ -298,8 +329,7 @@ def search(query: str, video: str | None = None, root: Path | None = None, limit
                 en = f" // {english[i]}" if english[i] else ""
                 hits.append((score, name, f"[{clock(seg.start)}] {seg.text}{en}"))
             else:
-                sc = shown[i - len(tl.transcript)]
-                hits.append((score, name, f"[{clock(sc.t)}] ON SCREEN: {sc.text.replace(chr(10), ' | ')}"))
+                hits.append((score, name, extra[i - len(tl.transcript)][0]))
         if video and checker.jev_available() and tl.transcript:
             both = [Segment(s.start, s.end, f"{s.text} // {e}" if e else s.text) for s, e in zip(tl.transcript, english)]
             try:
@@ -400,30 +430,66 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
             f"Passages:\n{passages}")
 
 
-def _screen_text_at(tl: Timeline, t: float) -> str:
-    """Everything on screen at t: the lines of its scene read up to then (a build step only stores
-    what it added)."""
+def _cite_at(tl: Timeline, t: float) -> str:
+    """The moment that covers t, and everything its scene showed up to then: some apps (ChatGPT)
+    don't reliably pass the image on, so the caption carries the whole screen, not just the step."""
+    covering = [m for m in tl.moments if m.start - 0.5 <= t < m.end + 0.5]
     here = next((s for s in tl.scenes if s.start <= t < s.end), None)
-    if here is None:
-        return ""
-    lines = [sc.text for sc in tl.screens if sc.scene == here.index and sc.t <= t + 1 and sc.text]
-    return " | ".join(" | ".join(x.splitlines()) for x in lines)
+    lines = [sc.text for sc in tl.screens if here and sc.scene == here.index and sc.t <= t + 1 and sc.text]
+    out = []
+    if covering:
+        m = covering[-1]
+        moving = f" (in motion; worth watching {clock(m.start)}–{clock(m.end)})" if m.code == "trajectory" else ""
+        out.append(f"Moment [{clock(m.t)}] {m.code}{moving}.")
+    if lines:
+        out.append("On screen (read by OCR): " + " | ".join(" | ".join(x.splitlines()) for x in lines))
+    return " ".join(out)
 
 
 def _with_screens(tl: Timeline, times: list[float], window: float = 15.0) -> Timeline:
-    """A copy whose transcript also holds the screen text shown within `window` s of the times,
-    as passages ("[on screen] ..."), so the checker weighs what was shown with what was said."""
-    near = [sc for sc in tl.screens if sc.text and any(abs(sc.t - t) <= window for t in times)]
-    if not near:
+    """A copy whose transcript also holds what was shown within `window` s of the times, so the
+    checker weighs the picture with the words. A moment is cited as `[delta] ...`; without moments,
+    the screen text is cited as `[on screen] ...`."""
+    pictured = [m for m in tl.moments if m.text and any(abs(m.t - t) <= window for t in times)]
+    if pictured:
+        extra = [Segment(m.t, m.t + 0.5, f"[{m.code}] {m.text.replace(chr(10), ' | ')}") for m in pictured]
+    else:
+        extra = [Segment(sc.t, sc.t + 0.5, f"[on screen] {sc.text}")
+                 for sc in tl.screens if sc.text and any(abs(sc.t - t) <= window for t in times)]
+    if not extra:
         return tl
     english = _english(tl)
-    rows = [(s, e) for s, e in zip(tl.transcript, english)] + [(Segment(sc.t, sc.t + 0.5, f"[on screen] {sc.text}"), "") for sc in near]
+    rows = [(s, e) for s, e in zip(tl.transcript, english)] + [(s, "") for s in extra]
     rows.sort(key=lambda r: r[0].start)
     copy = Timeline(video=tl.video, frames=tl.frames, sheets=[], scenes=tl.scenes, chapters=tl.chapters)
     copy.transcript = [r[0] for r in rows]
     copy.translation = [r[1] for r in rows] if any(english) else []
     copy.language, copy.transcriber, copy.screens = tl.language, tl.transcriber, tl.screens
     return copy
+
+
+def _moments_status(name: str, tl: Timeline, root: Path | None) -> str:
+    """What the briefing says about the screen read, and the moments built from it."""
+    out = f"Screen text: {_screens_status(name, tl, root)}."
+    if not tl.moments:
+        return out
+    counts = {code: sum(1 for m in tl.moments if m.code == code) for code in ("state", "delta", "trajectory", "seek")}
+    parts = ", ".join(f"{n} {code}" for code, n in counts.items() if n)
+    out += (f"\nMoments: {len(tl.moments)} ({parts}), each a picture change in line with the words in video_read: "
+            "state = a picture that holds, delta = lines added to it, trajectory = the screen moves (frames are "
+            "samples), seek = no frame could be read. Screen text is OCR, for finding things; before citing a "
+            "number from the screen, look at its frame with video_frames(at=[time]).")
+    spans: list[list[float]] = []
+    for m in tl.moments:
+        if m.code not in ("trajectory", "seek"):
+            continue
+        if spans and m.start <= spans[-1][1] + 0.5:  # neighbouring moments are one stretch to watch
+            spans[-1][1] = m.end
+        else:
+            spans.append([m.start, m.end])
+    if spans:
+        out += "\nBetter watched than read: " + ", ".join(f"{clock(a)}–{clock(b)}" for a, b in spans[:12]) + "."
+    return out
 
 
 def _screens_status(name: str, tl: Timeline, root: Path | None) -> str:
@@ -435,7 +501,7 @@ def _screens_status(name: str, tl: Timeline, root: Path | None) -> str:
         texts = sum(1 for sc in tl.screens if sc.text)
         subs = sum(1 for sc in tl.screens if sc.subtitles)
         note = f"; burned-in subtitles at {subs} of them, kept apart" if subs else ""
-        return f"read at {len(tl.screens)} moments, {texts} with text (video_read shows it as ON SCREEN lines){note}"
+        return f"read at {len(tl.screens)} moments, {texts} with text (video_read shows it in the moments){note}"
     state = jobs.status(name, root)
     if state.get("stage") == "screens" and state.get("screens_eta"):
         import time

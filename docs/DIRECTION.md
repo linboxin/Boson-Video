@@ -1,8 +1,9 @@
 # Boson-Video direction
 
 Agreed with the owner on 2026-10-02 and revised with the owner on 2026-10-04 (the plugin
-direction). Read this before building anything. Keep the milestone table current as work
-lands; change the direction itself only with the owner.
+direction) and on 2026-10-05 (cost follows states; the moment). Read this before building
+anything. Keep the milestone table current as work lands; change the direction itself only
+with the owner.
 
 ## What we are building
 
@@ -14,10 +15,40 @@ plugin, or our own page.
 - **For:** people who learn from long videos in a language they only half know: tech talks,
   lectures, finance commentary. They reach it through the AI they already use. The first
   user is the owner (Chinese technical and finance videos).
-- **The document is the product.** The page and the plugin are two ways to read it. Scene
-  detection, transcripts and models exist to feed it.
+- **The document is the product, with two ways in.** The website: anyone pastes a video link
+  and reads it. The plugin: any AI or agent (Claude, ChatGPT, Cursor, Codex, Grok) connects
+  and reads the same document. Scene detection, transcripts and models exist to feed it.
 - **It works with no keys.** Someone who can't pay for Jev or a writing model still gets the
   document and the plugin; their own AI does the writing. Keys make it sharper, not possible.
+- **Cost follows states, not runtime.** Visual complexity K is the number of distinct
+  pictures, not the length in seconds. Speech complexity S is the words, not the silence.
+  Sharp frames, OCR, and what a model is shown cost on the order of K + S. An hour-long talk
+  with about 70 visual states is a document of those states. A montage's K is its shot count,
+  and it does not compress the same way.
+
+**Where people stop.** People learn from the document without sitting through the runtime,
+until the second they came for still has to be watched: a derivation, a demo, a number the page
+got wrong or never captured. Past that point the tool is a slower way to find the playhead, and
+pasting the link into a model that can see video is easier. So the document says where it
+can't carry the video before the reader finds out (trajectory and seek moments, "better watched
+than read" in the plugin's briefing), puts the player at that second, and keeps the original
+line with English beneath it beside the player. One wrong number costs more trust than a missing
+one, so screen text is for finding and the frame is what gets cited. The test is on questions
+people actually ask: how many are answered right without watching; when watching was needed,
+whether the tool said so first and landed within 10 s; and the same questions put to a video
+model given the link, as the baseline.
+
+**The moment is the unit.** One moment is a span of time: the words said then, which of the
+four picture codes applies, the lines new since the previous moment, and the frame. Search,
+checks, and the page all point at that same moment. Passages, scenes, and screens stay the
+measurements the moment is built from. OCR text is for search. The frame is what gets read.
+
+| Code | When | What is stored |
+| --- | --- | --- |
+| State | The picture holds | One frame, and how long it lasted |
+| Delta | A slide build, a board, or code appearing | The base frame, plus each new line |
+| Trajectory | The motion is the content | Samples along the path, or a short clip |
+| Seek | That code is not enough | The original range |
 
 Three layers, each with one job:
 
@@ -36,7 +67,11 @@ Three layers, each with one job:
    and check a claim. Long work (download, transcription) runs in the background, so no tool
    call waits long. Claude can't take video, but it can take images, so the frame tool is how
    the user's AI sees the video.
-2. **The page:** target design [read-view.html](read-view.html), also published at
+2. **The website** (`boson-video serve`): paste a YouTube link on the front page; the page
+   opens once the scene map is ready (seconds) and fills in as the words, the screen and the
+   summary arrive. It runs on the user's computer, so YouTube downloads stay on their side; a
+   hosted version waits for the Chrome extension (milestone 9). Each video's page: target design
+   [read-view.html](read-view.html), also published at
    https://claude.ai/artifact/4KTYhto8fKhLPptrokXyUn (owner-only). The ribbon (the whole video
    on one strip: most-replayed curve, scene changes, chapters), the summary with every
    sentence linked and checked, the transcript line by line with English beneath and terms
@@ -47,7 +82,7 @@ Three layers, each with one job:
 | --- | --- | --- |
 | Talking head | Reads like an article | `9JKT5rBbrwM`: one shot fills 97%, no captions |
 | Slide talk | Slide deck with speaker notes | `zjkBMFhNj_g`: 59 slides, 21 chapters |
-| Tutorial | Numbered steps and code | none yet |
+| Tutorial | Numbered steps: a delta per new line, the frame beside it | none yet |
 | Fast cuts | Contact sheet of shots | `dQw4w9WgXcQ`: 87 shots in 3:33 |
 
 ## Principles
@@ -64,7 +99,10 @@ Three layers, each with one job:
    means "matches what was said or shown", not "true".
 6. **Quality is measured, not assumed:** transcript accuracy against human captions, missed
    visuals against a one-frame-per-second pass, numbers on screen against full-resolution
-   frames.
+   frames. Cost is plotted against K and S, not against runtime alone.
+7. **Represent change, not time.** A stable picture is one state. New ink is a delta. Motion
+   that carries the idea is a trajectory or a clip. Anything the code cannot hold is a seek
+   back to the original second.
 
 ## Milestones
 
@@ -75,11 +113,12 @@ Three layers, each with one job:
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
 | 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried) | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
-| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | Next | Planted-error test passes for each checker; the label on every line is right |
+| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
-| 7 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
-| 8 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
-| 9 | Later: a library across videos, layouts by kind of video, creator tools | | |
+| 7 | **Moment:** one object joins the words, the picture code, the new lines, and the frame; the four codes (state, delta, trajectory, seek) | Done, 2026-10-06 (the summary still cites passages, not moments: next) | `qbReD1cGykQ`: 90 moments (22 state, 44 delta, 24 trajectory: its animated chat demos and diagrams). KL = 2.71, shown and never said, comes back as the delta at 9:15 with its frame. Search, check, frame captions and the page cite that same moment. On six videos, a run of changes with no text on screen (a speaker at a podium) stays state and delta; `slFa9Vx3crw`'s scrolled article (21:50–23:20) is a trajectory, "better watched than read" |
+| 8 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
+| 9 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
+| 10 | Later: a library across videos, layouts by kind of video, creator tools | | After one lecture can be retrieved as moments |
 
 ## Who does what
 
@@ -115,15 +154,21 @@ Each needs a number we track; "today" is as of 2026-10-04.
 | Faithful | Share of summary sentences that fail the check; the planted-error test (`scripts/planted_errors.py`) | 4 of 75 flagged on four videos (Apple transcripts), mostly real writer slips; 1 of 12 on `slFa9Vx3crw` (SenseVoice). Planted-error fixture, 28 cases on SenseVoice transcripts, mostly English claims (2026-10-04): Jev accepts 14 of 14 true and catches 13 of 14 planted (misses an entity swap, "Customer B" for A); code alone catches all 6 number and date errors and judges nothing else |
 | Complete | Chapter starts, "most replayed" peaks and points from human summaries that the page covers | Not measured (`slFa9Vx3crw`'s summary skipped its first 3½ minutes) |
 | Names and numbers right | Errors in names, tickers and figures | Names fixed by the writer from the video's own name list; numbers checked in code, including Chinese numerals as SenseVoice writes them |
-| Fast | Time to first view, time to full read view | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached) |
+| Fast | Time to first view, time to full read view; sharp work against K, not against runtime | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached). Cost against K is not measured yet |
 | Findable | Ask lands within 10 s of the right moment | 7 of 7 spot checks right, including "not in this video" |
+| Answered without watching | Of real questions (the ones saved in `notes.json`), the share answered right with no playback; when watching was needed, whether the tool said so first; the same questions to a video model given the link, as the baseline | Not measured |
+| Sees what changed | Visual states the scene map misses against a one-frame-per-second pass | Not measured (thumbnails every 10 s on long videos can miss anything shorter) |
 | Sees the screen | Numbers and code read from full-resolution frames | Screen text in `timeline.json` at every new visual and build step: 19 of 20 Karpathy slides right, tables included (Chatbot Arena leaderboard read cell by cell); on-screen numbers like KL = 0.08 / 2.71 are searchable and checkable |
 | Works without keys | What the plugin and page give with no `.env` | The plugin works fully (its AI writes); the page has scenes, words and search; checks fall back to numbers in code and say so |
 
 ## Research directions
 
-1. **How few frames are enough:** our scene-map frames against evenly spaced frames at the
-   same token budget, on public long-video question benchmarks (Video-MME, LongVideoBench).
+1. **Cost follows K + S:** on the same questions, three ways of choosing frames: the scene-map
+   states; the same number of evenly spaced frames (the control: does the map pick better
+   frames, or only fewer?); and a one-frame-per-second pass. Accuracy is plotted against cost
+   across several budgets, and against K and S, with runtime only as a label (Video-MME,
+   LongVideoBench). A method that spends in proportion to the runtime on a video whose K is a
+   few dozen has missed the structure.
 2. **A small judge deciding where to look:** Jev picking the moments worth a vision model,
    against a large model doing the same, by cost and accuracy.
 3. **Verified summaries:** how often summaries invent things, with and without checks, and
@@ -168,6 +213,16 @@ videos on our servers (bot checks and other people's rights).
   model for screen text.
 - 2026-10-04: the plugin's shape: a briefing on open, then tools to drill down (chosen by
   Claude under the owner's hand-off; the owner can overturn it).
+- 2026-10-05: **cost follows states.** The owner adopted the complexity claim: sharp work is
+  on the order of K + S, not a frame per second. The moment is the next structural milestone,
+  ahead of bring-your-own-model. A picture span is one of four codes: state, delta,
+  trajectory, seek. The library and other verticals stay later, after one lecture can be
+  retrieved as moments and a visual fact that was never spoken still comes back with its frame.
+- 2026-10-06: **two products, one document.** The website is a product in its own right:
+  anyone pastes a video link and reads it. The plugin is the same document for any AI or agent
+  that connects. The website runs on the user's computer (`boson-video serve`) because YouTube
+  downloads stay on the user's side; a hosted website waits for the Chrome extension. The owner's
+  stop point ("Where people stop", above) is the product's test.
 
 ## Facts to build on (checked 2026-09-24 to 2026-10-04)
 
