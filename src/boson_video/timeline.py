@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -172,6 +173,25 @@ class Timeline:
     def said_during(self, start: float, end: float) -> list[Segment]:
         """Segments whose middle falls in [start, end)."""
         return [s for s in self.transcript if start <= (s.start + s.end) / 2 < end]
+
+    def screen_lines(self, limit: int = 4000) -> list[str]:
+        """The short lines shown on screen, once each, in order: how the video itself spells its
+        names and terms. Speech recognition hears 因系智能 where the slide says 英矽智能
+        (f4zGqjYWS_Q, 2026-10-06), so the writers get these as spelling, never as facts. Up to
+        `limit` characters; bare numbers and long paragraphs are left out."""
+        out, seen, size = [], set(), 0
+        for sc in self.screens:
+            for line in (sc.text + "\n" + sc.subtitles).splitlines():
+                line = line.strip()
+                key = re.sub(r"[\W_]+", "", line.lower())
+                if not 2 <= len(line) <= 40 or not re.search(r"[^\W\d_]", line) or key in seen:
+                    continue
+                if size + len(line) > limit:
+                    return out
+                seen.add(key)
+                out.append(line)
+                size += len(line)
+        return out
 
     def to_json(self) -> dict:
         """Everything except the image bytes, for the stages that come next (docs/timeline-format.md)."""

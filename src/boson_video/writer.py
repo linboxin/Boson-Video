@@ -28,6 +28,7 @@ Rules:
 - Use only what the transcript says. Every sentence cites the ids of all the transcript passages it rests on (usually 1-6); never use facts from passages you don't cite.
 - Be concrete: keep the numbers, prices, dates, names, tickers, decisions and reasons. "He shorted Meta at 740" beats "He talked about Meta".
 - The transcript was made by speech recognition, so names and English words inside other languages are often misheard (for example "Monelife" for "Money or Life"). When a word clearly sounds like an entry in `names`, write it the way `names` spells it. Never invent a name.
+- `on_screen`, when given, is text shown in the video, read by OCR. The screen spells names right where speech recognition mishears them (a slide says 英矽智能 where the transcript heard 因系智能): when a transcript word sounds like an on-screen word, spell it the on-screen way. Use `on_screen` only for spelling, never as a source of facts.
 - `text` and `title` are in {language}. {english_rule}
 - `tldr`: 2-3 sentences saying what the video is and its main conclusion.
 - `sections`: in time order. If `chapters` are given, make one section per chapter, titled like the chapter. Otherwise split by topic into about one section per 4-8 minutes (at least 2). Each section has 2-4 sentences. `start_id` is the id of the section's first transcript passage.
@@ -86,6 +87,8 @@ def request_body(tl: Timeline, names: list[str], effort: str = "low") -> dict:
         # one line per passage, "<id> <time> <text>": far fewer tokens than an object per passage
         "transcript": "\n".join(f"{i} {_clock(s.start)} {s.text}" for i, s in enumerate(tl.transcript)),
     }
+    if lines := tl.screen_lines():
+        payload["on_screen"] = lines
     rule = ("The video is in English: leave `text_en` and `title_en` empty." if language == "English" else
             f"The video is in {language}, so `text_en` and `title_en` are required: the English version of every `text` and `title`.")
     return mercury.body(SYSTEM.format(language=language, english_rule=rule), payload, SCHEMA, "read_view", effort)

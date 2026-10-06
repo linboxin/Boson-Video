@@ -26,6 +26,7 @@ TRANSLATE_SYSTEM = """You translate a video's machine-made transcript into natur
 
 - `transcript` has one passage per line: its id, then what was said. Return one item per id, same ids, same order.
 - Speech recognition garbles English words inside other languages ("ibedding" for "embedding", "toan" for "token"). Translate what the speaker meant; spell names as `names` does.
+- `on_screen`, when given, is text shown in the video: it spells names right where speech recognition misheard them (英矽智能 on a slide, 因系智能 in the transcript). Follow its spelling, and give a company or product its usual English name (英矽智能 → Insilico Medicine).
 - Keep technical terms precise and keep every number. Don't summarise, don't merge or skip passages.
 - Each passage may start or end mid-sentence; translate just the words it holds.
 """
@@ -46,7 +47,7 @@ From the transcript, pick the 8-20 technical terms such a learner would most nee
 
 For each term:
 - `heard`: the term exactly as it is written in the transcript, copied character for character, even if misheard (it is used to find the term in the text).
-- `term`: the term written correctly, as the speaker meant it.
+- `term`: the term written correctly, as the speaker meant it (`on_screen`, when given, shows how the video itself spells it).
 - `en`: its usual English name. `reading`: pinyin with tone marks if the term is Chinese, else "".
 - `explain`: 1-2 plain English sentences for a smart non-expert: what it is and why it matters here. This is general background.
 - `said`: one sentence in {language} saying what the video itself says about it; `said_en`: the same in English; `evidence`: the ids of the passages that say it. Use only what those passages say.
@@ -99,10 +100,11 @@ class StudyError(RuntimeError):
 
 def translate(tl: Timeline, names: list[str], transport=None) -> tuple[list[str], dict]:
     """English for every passage (empty strings where a chunk failed twice)."""
-    return translate_texts([s.text for s in tl.transcript], tl.video.title, names, transport)
+    return translate_texts([s.text for s in tl.transcript], tl.video.title, names, transport, tl.screen_lines())
 
 
-def translate_texts(texts: list[str], title: str, names: list[str], transport=None) -> tuple[list[str], dict]:
+def translate_texts(texts: list[str], title: str, names: list[str], transport=None,
+                    on_screen: list[str] | None = None) -> tuple[list[str], dict]:
     """English for each text, in chunks sent at once."""
     n = len(texts)
     if not n:
@@ -112,6 +114,8 @@ def translate_texts(texts: list[str], title: str, names: list[str], transport=No
     def chunk(lo: int):
         want = set(range(lo, min(lo + CHUNK, n)))
         payload = {"title": title, "names": names, "transcript": "\n".join(f"{i} {texts[i]}" for i in sorted(want))}
+        if on_screen:
+            payload["on_screen"] = on_screen
         return mercury.ask_json(TRANSLATE_SYSTEM, payload, TRANSLATE_SCHEMA, "translation",
                                 usable=lambda o: len(want & {x.get("id") for x in o.get("lines", [])}) >= 0.9 * len(want),
                                 effort="instant", max_tokens=16000, transport=transport)
@@ -137,7 +141,7 @@ def fill_summary_english(tl: Timeline, names: list[str], transport=None) -> int:
     slots += [(sec, "title_en", sec.title) for sec in tl.summary.sections if not sec.title_en and sec.title]
     if not slots:
         return 0
-    english, _ = translate_texts([text for _, _, text in slots], tl.video.title, names, transport)
+    english, _ = translate_texts([text for _, _, text in slots], tl.video.title, names, transport, tl.screen_lines())
     for (obj, attr, _), en in zip(slots, english):
         setattr(obj, attr, en)
     return len(slots)
@@ -147,6 +151,8 @@ def glossary(tl: Timeline, names: list[str], language: str, transport=None) -> t
     n = len(tl.transcript)
     payload = {"title": tl.video.title, "names": names,
                "transcript": "\n".join(f"{i} {s.text}" for i, s in enumerate(tl.transcript))}
+    if lines := tl.screen_lines():
+        payload["on_screen"] = lines
     out, st = mercury.ask_json(GLOSSARY_SYSTEM.format(language=language), payload, GLOSSARY_SCHEMA, "glossary",
                                usable=lambda o: bool(o.get("terms")), transport=transport)
     terms = []

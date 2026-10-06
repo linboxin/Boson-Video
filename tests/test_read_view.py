@@ -8,7 +8,7 @@ import pytest
 
 from boson_video import ask as ask_mod
 from boson_video import checker, writer
-from boson_video.timeline import Segment, Sentence, Summary, Timeline, Video
+from boson_video.timeline import Screen, Segment, Sentence, Summary, Timeline, Video
 
 
 def _timeline(n: int = 6, language: str = "zh_CN") -> Timeline:
@@ -27,6 +27,19 @@ def test_request_body_is_compact_and_in_the_videos_language():
     assert user["transcript"].splitlines()[1] == "1 0:10 passage 1 says 100"
     assert body["response_format"]["json_schema"]["strict"] is True
     assert body["temperature"] == 0.5
+    assert "on_screen" not in user  # nothing was read off the screen
+
+
+def test_the_writer_spells_names_the_way_the_screen_does():
+    tl = _timeline(3)
+    tl.screens = [Screen(0, 0, "举例英矽智能\n+500%\nPandaOmics\n" + "长" * 60, "发现疾病"),
+                  Screen(9, 0, "PANDAOMICS\n举例英矽智能")]
+    lines = tl.screen_lines()
+    # bare numbers, long paragraphs and repeats (whatever their case) are left out; subtitles count
+    assert lines == ["举例英矽智能", "PandaOmics", "发现疾病"]
+    assert tl.screen_lines(limit=10) == ["举例英矽智能"]
+    user = json.loads(writer.request_body(tl, [], "low")["messages"][1]["content"])
+    assert user["on_screen"] == lines
 
 
 def test_to_summary_cleans_and_orders():
