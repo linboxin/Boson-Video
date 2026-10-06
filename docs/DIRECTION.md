@@ -41,7 +41,15 @@ Three layers, each with one job:
    on one strip: most-replayed curve, scene changes, chapters), the summary with every
    sentence linked and checked, the transcript line by line with English beneath and terms
    glossed, and the ask box (`boson-video serve`). Later the layout follows the kind of video
-   (`scenes.profile` decides):
+   (`scenes.profile` decides; see the table below).
+3. **The product** (`boson-video web`, from 2026-10-06): an invite-only site with a new, simpler
+   design. Paste a YouTube link or drop a video file; each video gets one page with the player
+   and the ribbon on one side and a conversation on the other: the checked summary first, then
+   answers that cite their moments and show the frames, with the transcript (English beneath)
+   and the terms a tab away. No product name on the page, nothing packed. On a server, uploads
+   work and YouTube links come through the browser extension (milestone 8).
+
+Layouts by kind of video, for later:
 
 | Kind | Layout | Reference video |
 | --- | --- | --- |
@@ -75,8 +83,9 @@ Three layers, each with one job:
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
 | 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried) | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
-| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | Next | Planted-error test passes for each checker; the label on every line is right |
+| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (owner, 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
+| 6b | **Product:** an invite-only web page per video: a link or an uploaded file in, the summary first, then chat answers with their moments and frames; transcript and terms a tab away; no product name | In progress, 2026-10-06: runs on this computer (`boson-video web`, invite codes, links and uploads, desktop and phone); hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 8) |
 | 7 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
 | 8 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
 | 9 | Later: a library across videos, layouts by kind of video, creator tools | | |
@@ -168,8 +177,18 @@ videos on our servers (bot checks and other people's rights).
   model for screen text.
 - 2026-10-04: the plugin's shape: a briefing on open, then tools to drill down (chosen by
   Claude under the owner's hand-off; the owner can overturn it).
+- 2026-10-06: **product first.** An invite-only web version comes before milestone 5: invite
+  codes, no accounts; videos come in as YouTube links or uploaded files (on a server, YouTube
+  links come through the extension, as decided on 2026-10-04).
+- 2026-10-06: a new interface for it: simple, no product name on the page, not packed;
+  chat-based, answering with good-looking output. Making the plugin show visuals inside
+  ChatGPT and Grok comes later.
 
-## Facts to build on (checked 2026-09-24 to 2026-10-04)
+## Facts to build on (checked 2026-09-24 to 2026-10-06)
+
+- The static ffmpeg build on the owner's Mac finds no certificates of its own, so reading
+  YouTube's stream failed ("certificate verify failed") and every frame quietly fell back to a
+  thumbnail: no screen text on the Mac until `frames.py` handed it certifi's bundle (2026-10-06).
 
 - YouTube from a script: the watch page works; caption downloads come back empty; the
   internal player API refuses scripted clients. Don't try to get around these checks.

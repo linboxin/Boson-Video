@@ -28,6 +28,23 @@ The words use Apple's on-device transcriber on a Mac (macOS 26 and Xcode's comma
 tools; built on first use), and SenseVoice elsewhere (models in `~/.cache/boson-video/models`). The summary needs `INCEPTION_API_KEY` (Mercury writes it) and
 `TYPESAFE_API_KEY` (Jev checks it and answers `ask`) in `.env`.
 
+## The product (invite-only, in progress)
+
+One page per video, built for reading and asking: the player and the ribbon on the left, a
+conversation on the right that opens with the checked summary and answers questions with the
+moments and the frames they rest on; the transcript (English beneath) and the terms are a tab away.
+
+```bash
+uv run boson-video web                      # http://127.0.0.1:8770; the first run prints your invite code
+uv run boson-video invite "a friend"        # a new code (10 new videos and 100 questions a day)
+uv run boson-video invite --list            # codes and what each has opened · --revoke CODE stops one
+```
+
+Paste a YouTube link or drop a video file (up to 2 GB, `BOSON_UPLOAD_MAX_MB`). Each code sees
+only the videos it opened and its own questions. On a server, run it with `--hosted`: YouTube
+links are refused there (YouTube downloads stay on the user's side; the browser extension will
+bring them), uploads still work. Asking needs both keys in `.env`.
+
 ## In your own AI (the plugin)
 
 `boson-video mcp` is an MCP server, the standard Claude Code, Claude Desktop, Cursor and Codex

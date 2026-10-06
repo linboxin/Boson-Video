@@ -10,6 +10,8 @@ browser.
 - `uv sync` once, then `uv run boson-video <youtube link | id | file> [--open] [--no-words] [--no-summary] [--lang zh_CN] [-o folder]` (videos are kept in `BOSON_VIDEO_HOME`, default `~/.boson-video`, for the CLI, the page and the plugin alike)
 - `uv run boson-video ask <video> "question"`: the moment that answers it (needs the page to exist)
 - `uv run boson-video serve [--open <video>]`: the pages on 127.0.0.1:8765 with the video playing beside them and a working ask box
+- `uv run boson-video web [--hosted] [--host 0.0.0.0] [--port 8770]`: the product, invite-only (the first run prints your code); `--hosted` refuses YouTube links
+- `uv run boson-video invite [label] [--per-day 10] [--asks 100] | --list | --revoke CODE`: invite codes for it
 - `uv run boson-video mcp`: the plugin (MCP over stdio) for Claude Code, Claude Desktop, Cursor, Codex; setup in the README
 - `uv run python scripts/mcp_smoke.py <video> [--no-keys]`: run the plugin like an AI app and call every tool
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
@@ -26,6 +28,7 @@ browser.
 - `sensevoice.py`: SenseVoice through sherpa-onnx, where Apple's transcriber isn't available (Windows, Linux)
 - `mercury.py`: the one Mercury client (strict JSON, retries, cost)
 - `study.py`: English for every passage, the glossary, and answers to questions (Jev finds, Mercury explains, Jev checks)
+- `web.py`: `boson-video web`, the product (Starlette): invite codes and a signed cookie, per-code videos and daily limits, links and uploads, the document as JSON, answers with frames · `app/`: its one page (`index.html`, `app.css`, `app.js`; plain JS, no libraries, no product name)
 - `server.py`: `boson-video serve`: library, pages, `/api/ask` (JSON from its own origin only), questions kept in `out/<id>/notes.json`
 - `library.py`: where videos live (`BOSON_VIDEO_HOME`), load and save (page, `timeline.json`, `sheets/`)
 - `jobs.py`: builds a video in a background thread; progress in `status.json`

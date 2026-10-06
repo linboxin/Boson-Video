@@ -52,8 +52,9 @@ def running(name: str) -> bool:
         return bool(t and t.is_alive())
 
 
-def start(ref: str, root: Path | None = None, words: bool = True) -> str:
-    """Start building `ref` (a link, id or file) unless it is built or building; returns its key."""
+def start(ref: str, root: Path | None = None, words: bool = True, title: str | None = None) -> str:
+    """Start building `ref` (a link, id or file) unless it is built or building; returns its key.
+    `title` names an uploaded file, which is kept under its hash rather than its own name."""
     name = library.key(ref)
     with _lock:
         t = _running.get(name)
@@ -64,7 +65,7 @@ def start(ref: str, root: Path | None = None, words: bool = True) -> str:
             return name
         # A fresh status before the thread starts, so nobody reads a stale error from an earlier run.
         _write_status(library.folder(name, root), stage="queued", started=time.time())
-        t = threading.Thread(target=_build, args=(ref, name, root, words), daemon=True, name=f"build-{name}")
+        t = threading.Thread(target=_build, args=(ref, name, root, words, title), daemon=True, name=f"build-{name}")
         _running[name] = t
         t.start()
     return name
@@ -81,14 +82,16 @@ def wait(name: str, seconds: float, root: Path | None = None, until: tuple[str, 
 
 
 def _complete(name: str, root: Path | None) -> bool:
-    """Built as far as this computer can: words, and the screen read if OCR is installed."""
+    """Built as far as this computer can: words, the screen read if OCR is installed, and the
+    summary if there is a writing key (a video first opened without one gets it later)."""
     from . import screens
 
     try:
         data = json.loads((library.folder(name, root) / "timeline.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    return bool(data.get("transcript")) and ("screens" in data.get("timings_ms", {}) or not screens.available())
+    return (bool(data.get("transcript")) and ("screens" in data.get("timings_ms", {}) or not screens.available())
+            and (bool(data.get("summary")) or not os.environ.get("INCEPTION_API_KEY")))
 
 
 def screens_estimate(moments: int) -> float:
@@ -109,7 +112,7 @@ def _write_status(where: Path, **fields) -> None:
     tmp.unlink(missing_ok=True)
 
 
-def _build(ref: str, name: str, root: Path | None, words: bool) -> None:
+def _build(ref: str, name: str, root: Path | None, words: bool, title: str | None = None) -> None:
     from . import frames, screens
     from .pipeline import add_summary, add_words, build  # heavy imports stay off the plugin's start-up
 
@@ -122,6 +125,8 @@ def _build(ref: str, name: str, root: Path | None, words: bool) -> None:
             tl = library.load(name, root, with_sheets=True)
         else:
             tl = build(ref)
+            if title:
+                tl.video.title = title
             library.save(tl, where)
         if words and not tl.transcript:
             stage = "words"

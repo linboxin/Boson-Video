@@ -44,6 +44,14 @@ def main(argv: list[str] | None = None) -> int:
         return ask_main(argv[1:])
     if argv[:1] == ["serve"]:
         return serve_main(argv[1:])
+    if argv[:1] == ["web"]:
+        from .web import main as web_main
+
+        return web_main(argv[1:])
+    if argv[:1] == ["invite"]:
+        from .web import invite_main
+
+        return invite_main(argv[1:])
     if argv[:1] == ["mcp"]:
         from .mcp_server import main as mcp_main  # the plugin; stdout carries the protocol
 
