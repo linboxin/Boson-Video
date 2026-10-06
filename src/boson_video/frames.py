@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 import time
@@ -129,11 +130,24 @@ def _source(tl: Timeline, where: Path) -> str:
     return lines[-1]
 
 
+def _tls_env() -> dict[str, str]:
+    """ffmpeg's environment, with certificates it can check YouTube's address against. Static
+    builds of ffmpeg on macOS find none of their own ("certificate verify failed"), so every
+    frame fell back to a thumbnail; Python's certifi bundle (there through httpx) fixes that."""
+    env = dict(os.environ)
+    if "SSL_CERT_FILE" not in env:
+        import certifi
+
+        env["SSL_CERT_FILE"] = certifi.where()
+    return env
+
+
 def _ffmpeg_frame(source: str, t: float, dst: Path) -> None:
     tmp = dst.with_suffix(".part.jpg")
     cmd = [ffmpeg(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-ss", f"{t:.2f}", "-i", source,
            "-frames:v", "1", "-vf", f"scale='min({WIDTH},iw)':-2", "-q:v", "3", str(tmp)]
-    done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60,
+                          env=_tls_env())
     if done.returncode != 0 or not tmp.exists() or tmp.stat().st_size == 0:
         tmp.unlink(missing_ok=True)
         raise RuntimeError(f"ffmpeg could not read the frame at {t:.0f} s: {done.stderr.strip()[-200:]}")
