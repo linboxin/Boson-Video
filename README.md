@@ -30,9 +30,13 @@ tools; built on first use), and SenseVoice elsewhere (models in `~/.cache/boson-
 
 ## The product (invite-only, in progress)
 
-One page per video, built for reading and asking: the player and the ribbon on the left, a
-conversation on the right that opens with the checked summary and answers questions with the
-moments and the frames they rest on; the transcript (English beneath) and the terms are a tab away.
+One page per video, built for reading and asking. On the left, the player, the ribbon (most
+replayed, scenes by kind, chapters; hover anywhere to see that second's frame and words) and a
+readout of what is being said. On the right, in tabs: the summary (frames for each section, every
+sentence timed and marked ✓ ? ✗), the transcript (terms glossed above the words, screen text and
+chapters in between, search, follows the video), the terms, every scene with its build steps and
+what was said, and Ask, which answers with the moments and frames it rests on. Everything shows in
+the original, in English, or both.
 
 ```bash
 uv run boson-video web                      # http://127.0.0.1:8770; the first run prints your invite code

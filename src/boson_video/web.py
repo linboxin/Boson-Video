@@ -32,6 +32,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
 from . import frames, jobs, library, study, writer
+from .scenes import profile
 from .timeline import Timeline
 from .youtube import YouTubeError, parse_video_id
 
@@ -43,8 +44,9 @@ UPLOAD_MAX = int(os.environ.get("BOSON_UPLOAD_MAX_MB", "2048")) * 1024 * 1024
 NO_CACHE = {"Cache-Control": "no-cache"}
 _KEY = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _FRAME = re.compile(r"^\d+(-thumb)?\.jpg$")
+_SHEET = re.compile(r"^\d+\.jpg$")
 _lock = threading.Lock()  # invites, per-code state and notes are written one at a time
-_cache: dict[str, tuple[float, Timeline]] = {}
+_cache: dict[str, tuple[float, Timeline, list[dict]]] = {}  # key → (mtime, document, sheet sizes)
 _tries: dict[str, list[float]] = {}  # invite attempts per address, against guessing
 
 
@@ -147,19 +149,25 @@ def _admit(root: Path, cid: str, info: dict, key: str) -> str | None:
 
 
 def load(root: Path, key: str) -> Timeline | None:
+    hit = _load(root, key)
+    return hit[1] if hit else None
+
+
+def _load(root: Path, key: str) -> tuple[float, Timeline, list[dict]] | None:
+    """The video and its sheets' sizes (the images stay on disk; the page fetches them)."""
     path = root / key / "timeline.json"
     if not path.exists():
         return None
     mtime = path.stat().st_mtime
     hit = _cache.get(key)
     if hit and hit[0] == mtime:
-        return hit[1]
-    tl = library.load(key, root)
-    _cache[key] = (mtime, tl)
-    return tl
+        return hit
+    data = json.loads(path.read_text(encoding="utf-8"))
+    _cache[key] = (mtime, Timeline.from_json(data, []), data.get("sheets", []))
+    return _cache[key]
 
 
-def document(tl: Timeline, key: str) -> dict:
+def document(tl: Timeline, key: str, sheets: list[dict] | None = None) -> dict:
     n = len(tl.transcript)
     english = tl.translation if len(tl.translation) == n else [""] * n
 
@@ -168,20 +176,34 @@ def document(tl: Timeline, key: str) -> dict:
         return min(ok) if ok else None
 
     def sentence(x) -> dict:
-        return {"text": x.text, "en": x.text_en, "t": at(x.evidence), "check": x.check}
+        return {"text": x.text, "en": x.text_en, "t": at(x.evidence), "check": x.check,
+                "p": round(x.check_p, 2), "note": x.check_note}
 
     summary = None
     if tl.summary:
         summary = {
             "tldr": [sentence(x) for x in tl.summary.tldr],
-            "sections": [{"title": sec.title, "en": sec.title_en, "t": sec.start,
+            "sections": [{"title": sec.title, "en": sec.title_en, "t": sec.start, "end": sec.end,
                           "sentences": [sentence(x) for x in sec.sentences]} for sec in tl.summary.sections],
             "writer": tl.summary.writer, "checker": tl.summary.checker,
         }
+    headline, stats = profile(tl.scenes, tl.video.duration) if tl.scenes else ("", {})
+    timings = {k: round(v / 1000, 2) for k, v in tl.timings.items()
+               if k in ("total", "words total", "screens", "write", "study", "check")}
     return {
         "key": key,
         "video": {"title": tl.video.title, "channel": tl.video.channel, "duration": tl.video.duration,
                   "yt": tl.video.id, "file": not tl.video.id},
+        "headline": headline,
+        "dense": len(tl.scenes) >= 30 and stats.get("median_scene_s", 99) <= 4,  # fast cutting: a grid reads better
+        "captions": [f"{c.lang}{' (auto)' if c.kind == 'asr' else ''}" for c in tl.captions],
+        "timings": timings,
+        # thumbnails cut from the sheets in the browser: [t, sheet, x, y, w, h]
+        "frames": [[f.t, f.sheet, f.x, f.y, f.w, f.h] for f in tl.frames],
+        "sheets": [{"url": f"/media/{key}/sheets/{i}.jpg", "w": s["width"], "h": s["height"]}
+                   for i, s in enumerate(sheets or [])],
+        "scenes": [{"start": s.start, "end": s.end, "kind": s.kind, "key": s.key, "look": s.look,
+                    "changes": s.changes} for s in tl.scenes],
         "language": tl.language,
         "english": writer.language_name(tl.language) == "English",
         "transcriber": tl.transcriber,
@@ -191,8 +213,10 @@ def document(tl: Timeline, key: str) -> dict:
         "transcript": [{"t": s.start, "e": s.end, "text": s.text, "en": en} for s, en in zip(tl.transcript, english)],
         "screens": [{"t": sc.t, "text": sc.text, "img": f"/media/{key}/{sc.image}"}
                     for sc in tl.screens if sc.text and sc.image],
-        "terms": [{"term": t.term, "en": t.en, "reading": t.reading, "explain": t.explain,
-                   "said": t.said.text, "said_en": t.said.text_en, "check": t.said.check, "t": at(t.said.evidence)}
+        "terms": [{"term": t.term, "heard": t.heard, "en": t.en, "reading": t.reading, "explain": t.explain,
+                   "said": t.said.text, "said_en": t.said.text_en, "check": t.said.check, "p": round(t.said.check_p, 2),
+                   "t": at(t.said.evidence), "mentions": len(t.mentions),
+                   "first": tl.transcript[t.mentions[0]].start if t.mentions else at(t.said.evidence)}
                   for t in tl.terms],
         "questions": tl.questions,
         "summary": summary,
@@ -371,11 +395,11 @@ async def video(request: Request) -> Response:
         return mine
     root, cid, key = mine
     status = jobs.status(key, root)
-    tl = await run_in_threadpool(load, root, key)
-    if tl is None:
+    hit = await run_in_threadpool(_load, root, key)
+    if hit is None:
         return JSONResponse({"key": key, "status": status})
     asked = [x for x in notes(root / key) if x.get("by") == cid]
-    return JSONResponse({**document(tl, key), "status": status, "notes": asked[::-1]})
+    return JSONResponse({**document(hit[1], key, hit[2]), "status": status, "notes": asked[::-1]})
 
 
 async def ask(request: Request) -> Response:
@@ -425,6 +449,8 @@ async def media(request: Request) -> Response:
     where, kind, rest = root / key, request.path_params["kind"], request.path_params.get("rest", "")
     if kind == "frames" and _FRAME.match(rest) and (where / "frames" / rest).exists():
         return FileResponse(where / "frames" / rest)
+    if kind == "sheets" and _SHEET.match(rest) and (where / "sheets" / rest).exists():
+        return FileResponse(where / "sheets" / rest, headers={"Cache-Control": "private, max-age=86400"})
     tl = await run_in_threadpool(load, root, key)
     if tl is None:
         return Response("not found", 404)

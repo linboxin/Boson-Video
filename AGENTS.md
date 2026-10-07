@@ -28,7 +28,7 @@ browser.
 - `sensevoice.py`: SenseVoice through sherpa-onnx, where Apple's transcriber isn't available (Windows, Linux)
 - `mercury.py`: the one Mercury client (strict JSON, retries, cost)
 - `study.py`: English for every passage, the glossary, and answers to questions (Jev finds, Mercury explains, Jev checks)
-- `web.py`: `boson-video web`, the product (Starlette): invite codes and a signed cookie, per-code videos and daily limits, links and uploads, the document as JSON, answers with frames · `app/`: its one page (`index.html`, `app.css`, `app.js`; plain JS, no libraries, no product name)
+- `web.py`: `boson-video web`, the product (Starlette): invite codes and a signed cookie, per-code videos and daily limits, links and uploads, the document as JSON, answers with frames · `app/`: its one page (`index.html`, `app.css`, `app.js`; plain JS, no libraries, no product name): ribbon with hover preview and readout; Summary, Transcript, Terms, Scenes and Ask tabs; original / both / English
 - `server.py`: `boson-video serve`: library, pages, `/api/ask` (JSON from its own origin only), questions kept in `out/<id>/notes.json`
 - `library.py`: where videos live (`BOSON_VIDEO_HOME`), load and save (page, `timeline.json`, `sheets/`)
 - `jobs.py`: builds a video in a background thread; progress in `status.json`

@@ -68,7 +68,14 @@ def test_a_code_sees_only_the_videos_it_opened(home, started):
     assert started == [("https://www.youtube.com/watch?v=abcdefghijk", None)]
     doc = a.get("/api/video/abcdefghijk").json()
     assert doc["video"]["title"] == "残差流是什么" and doc["status"]["stage"] == "done"
-    assert doc["summary"]["tldr"][0] == {"text": "残差流是主干道", "en": "The residual stream is the main road", "t": 1, "check": "supported"}
+    assert doc["summary"]["tldr"][0] == {"text": "残差流是主干道", "en": "The residual stream is the main road", "t": 1,
+                                         "check": "supported", "p": 0.0, "note": ""}
+    # what the ribbon, the frame strips and the Scenes tab draw from
+    assert doc["frames"][1] == [10.0, 0, 32, 0, 32, 18] and doc["sheets"] == [{"url": "/media/abcdefghijk/sheets/0.jpg", "w": 64, "h": 36}]
+    assert [s["kind"] for s in doc["scenes"]] == ["new", "new", "repeat"] and doc["headline"]
+    assert doc["terms"][0]["mentions"] == 1 and doc["terms"][0]["first"] == 1 and doc["terms"][0]["heard"] == "残差流"
+    assert a.get("/media/abcdefghijk/sheets/0.jpg").headers["content-type"] == "image/jpeg"
+    assert a.get("/media/abcdefghijk/sheets/..%2Ftimeline.json").status_code == 404
     assert doc["summary"]["sections"][0]["sentences"][0]["check"] == "unsupported"
     assert doc["transcript"][1] == {"t": 7, "e": 12, "text": "有害组一百二十八个问题", "en": "128 harmful questions"}
     assert doc["terms"][0]["term"] == "残差流" and doc["chapters"][1] == {"t": 20, "title": "方向"}
