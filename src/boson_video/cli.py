@@ -117,6 +117,12 @@ def main(argv: list[str] | None = None) -> int:
         _write(tl, folder)
         print(f"screen read in {time.perf_counter() - t0:.1f} s: {len(tl.screens)} moments, "
               f"{sum(1 for x in tl.screens if x.text)} with screen text, {sum(1 for x in tl.screens if x.subtitles)} with burned-in subtitles")
+        from . import frames
+
+        sharp = [p for p in (folder / "frames").glob("*.jpg") if not p.stem.endswith("-thumb")]
+        if not sharp and frames.moments(tl, 0.0, None, limit=1):
+            print(f"no screen text: the full-resolution video couldn't be read, and thumbnails are too small "
+                  f"({frames.last_error.splitlines()[-1] if frames.last_error else 'no reason given'})")
     if args.no_summary or not tl.transcript:
         return 0
     if not os.environ.get("INCEPTION_API_KEY"):

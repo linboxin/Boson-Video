@@ -241,6 +241,12 @@ videos on our servers (bot checks and other people's rights).
 - Full-resolution frames from YouTube: yt-dlp gives the video-only stream address and ffmpeg
   reads one frame per needed second from it: 3 frames in 3.5–8 s including the address, about
   20–125 KB each at 1280 px.
+- Since 2026-10-07 YouTube can refuse that stream: on `YkhmBOctzWE` it served only about the first
+  5.8 MB of a 117 MB 1080p stream (roughly the first minute) and answered 403 to every byte range
+  past it, with or without a browser User-Agent, while `f4zGqjYWS_Q` had read fine the day before.
+  This looks like YouTube's bot check (what yt-dlp calls a PO token), which we don't get around, so
+  such a video gets thumbnails and no screen text, and the command line now says why. Frames read
+  in the user's browser (the extension) are the way through.
 - Claude Code with only the plugin (2026-10-04, `qbReD1cGykQ`): 8 turns in 51 s; it read the
   section, looked at the scene map's frames, then at exact moments, and checked two of its own
   claims before answering.

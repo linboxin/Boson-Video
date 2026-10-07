@@ -31,6 +31,7 @@ from .timeline import Timeline
 WIDTH = 1280
 STREAM_FORMAT = "bv*[height<=1080][vcodec^=avc1]/bv*[height<=1080]/bv*"
 STREAM_TTL = 3 * 3600  # YouTube's stream addresses expire after a few hours
+last_error = ""  # why the last full-resolution frame couldn't be read, for saying so
 
 
 @dataclass
@@ -83,21 +84,23 @@ def grab(tl: Timeline, where: Path, times: list[float], labels: list[str] | None
     labels = labels or [label_at(tl, t) for t in times]
     clamped = [max(0.0, min(t, tl.video.duration - 0.5)) for t in times]
     missing = [t for t in clamped if not (out_dir / f"{int(t * 1000)}.jpg").exists()]
+    global last_error
     source = None
     if missing:
         try:
             source = _source(tl, where)
-        except (RuntimeError, OSError, subprocess.SubprocessError):
-            source = None  # thumbnails, below
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+            source, last_error = None, str(e)[-200:]  # thumbnails, below
 
     def one(i: int) -> Shot | None:
+        global last_error
         t = clamped[i]
         sharp = out_dir / f"{int(t * 1000)}.jpg"
         if not sharp.exists() and source:
             try:
                 _ffmpeg_frame(source, t, sharp)
-            except (RuntimeError, OSError, subprocess.SubprocessError):
-                pass
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+                last_error = str(e)[-200:]
         if sharp.exists():
             shot = Shot(t, sharp, True, labels[i])
         else:
