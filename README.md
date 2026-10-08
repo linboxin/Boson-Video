@@ -58,6 +58,17 @@ only the videos it opened and its own questions. On a server, run it with `--hos
 links are refused there (YouTube downloads stay on the user's side; the browser extension will
 bring them), uploads still work. Asking needs both keys in `.env`.
 
+### On a server (Coolify or any Docker host)
+
+The `Dockerfile` runs `boson-video web --hosted`: uploads only, since YouTube downloads stay on
+the user's side. In Coolify: **+ Add Resource → Private Repository** (this repo, branch `main`)
+→ build pack **Dockerfile**, port **8770**, a domain such as `https://video.example.com` (its DNS
+pointing at the server); **Storages**: a volume at `/data`; **Environment variables**:
+`TYPESAFE_API_KEY` and `INCEPTION_API_KEY`. The first start downloads the speech models (about
+650 MB, SenseVoice and Parakeet) into the volume and prints your invite code in the logs; more
+codes from the app's **Terminal**: `boson-video invite "a friend"`. About 2 CPU cores, 4 GB of RAM
+and 15 GB of disk is a starting point (an estimate).
+
 ## In your own AI (the plugin)
 
 `boson-video mcp` is an MCP server, the standard Claude Code, Claude Desktop, Cursor and Codex
