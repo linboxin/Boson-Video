@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
-    { "source": "/:path*", "destination": "https://YOUR-COOLIFY-ADDRESS/:path*" }
+    { "source": "/:path*", "destination": "https://h0wsk84kc00084ccg08o040k.40.160.231.143.sslip.io/:path*" }
   ]
 }
