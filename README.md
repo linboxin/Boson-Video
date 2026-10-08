@@ -72,6 +72,7 @@ uv run pytest                                # tests (offline); -m live hits You
 ## More
 
 - [docs/DIRECTION.md](docs/DIRECTION.md): what we're building, milestones, decisions
+- [docs/workflow.md](docs/workflow.md): how the workflow is designed: stages, the document, the ways in
 - [docs/how-it-works.md](docs/how-it-works.md): the pipeline, what YouTube allows, limits
 - [docs/measured.md](docs/measured.md): speed and accuracy, as measured
 - [docs/timeline-format.md](docs/timeline-format.md): the document format, for other tools
