@@ -75,3 +75,14 @@ characters on both sides).
 | Ken Robinson, TED (English) | 20:06 | Parakeet | **10.5% of words** (fillers the captions omit included) | 26.9 s |
 | Ken Robinson, TED (English) | 20:06 | SenseVoice | 58.6% of words | |
 | Andrej Karpathy (English) | 59:48 | Parakeet | only automatic captions exist | 77 s |
+
+## The product page's first videos (2026-10-06 and 2026-10-07, M5 MacBook)
+
+| Video | Length | Scenes | Words (download · prep · speech) | Screen text | Summary (write · study · check) | Checked |
+| --- | --- | --- | --- | --- | --- | --- |
+| Money or Life 美股频道, "AI 加速药物研发" (Chinese, slides) | 28:24 | 1.13 s, 31 new visuals | 18.5 s (8.9 · 1.7 · 6.8 s) | 36 moments in 14.7 s of reading, after the Mac's ffmpeg was given certificates (0 before) | 69.0 s from start (7.6 · 40.3 · 0.6 s), $0.0034 with the English and terms | 15 of 16; rewritten with names from the screen: 15 of 15 |
+| Sean's AI Stories, "AI Agent Observability & Eval" (English, screen recording) | 20:48 | 1.50 s, 18 new visuals | 13.2 s (3.5 · 1.2 · 7.0 s) | none: YouTube served only the first 5.8 MB of the 1080p stream, then 403 | 25.9 s from start (4.9 · 3.3 · 1.3 s), about $0.0014 | 23 of 26; one flag a real writer slip ("Sonnet 3.5" for what was said as "son 5.5"), one a false alarm |
+
+A question in the product page ("What does Insilico Medicine use AI for, and how much time did it
+save?") was answered in 2.9 s, both sentences checked, with three slides; on the English video,
+"Which model was the slowest step using, and what did it cost?" in 6.0 s, 1 of 1 checked.
