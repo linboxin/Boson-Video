@@ -1,11 +1,31 @@
 [project]
 name = "boson-video"
-version = "0.1.0"
-description = "Near-instant video summaries: see what happens when, before any AI runs."
+version = "0.2.0"
+description = "Skim any video: a timed summary, a bilingual transcript, screen text and checked answers, as a web page or an MCP plugin."
 readme = "README.md"
 requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "James Lin" }]
+keywords = ["mcp", "mcp-server", "video", "youtube", "transcript", "summary", "ocr", "claude", "subtitles", "learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "Natural Language :: Chinese (Simplified)",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Text Processing",
+]
 dependencies = [
+    "deno>=2.0",
     "httpx[http2]>=0.28",
+    "imageio-ffmpeg>=0.6.0",
     "mcp>=2.3.0",
     "numpy>=2.0",
     "pillow>=11.0",
@@ -13,8 +33,13 @@ dependencies = [
     "sherpa-onnx>=1.13.8",
     "sherpa-onnx-core>=1.13.8",
     "typesafe-sdk>=0.7.2",
-    "yt-dlp>=2026.8.19",
+    "yt-dlp[default]>=2026.8.19",
 ]
+
+[project.urls]
+Homepage = "https://github.com/linboxin/Boson-Video"
+Repository = "https://github.com/linboxin/Boson-Video"
+Issues = "https://github.com/linboxin/Boson-Video/issues"
 
 [project.scripts]
 boson-video = "boson_video.cli:main"

@@ -30,11 +30,22 @@ class LocalVideoError(RuntimeError):
 
 
 def ffmpeg() -> str:
-    for candidate in (shutil.which("ffmpeg"), Path.home() / ".local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg",
-                      "/usr/local/bin/ffmpeg", Path.home() / "scoop/shims/ffmpeg.exe"):
+    """The ffmpeg installed on this computer, else the one that comes with the package
+    (imageio-ffmpeg), so the plugin works on a computer that never installed ffmpeg."""
+    for candidate in _installed():
         if candidate and Path(candidate).exists():
             return str(candidate)
-    raise LocalVideoError("ffmpeg not found; install it (e.g. `brew install ffmpeg`) to read local files")
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except (ImportError, RuntimeError):
+        raise LocalVideoError("ffmpeg not found; install it (e.g. `brew install ffmpeg`)") from None
+
+
+def _installed() -> list:
+    return [shutil.which("ffmpeg"), Path.home() / ".local/bin/ffmpeg", "/opt/homebrew/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg", Path.home() / "scoop/shims/ffmpeg.exe"]
 
 
 def probe_duration(path: str) -> float:

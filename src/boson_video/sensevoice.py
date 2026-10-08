@@ -10,13 +10,18 @@ soon as it is found, on several threads sharing one model; each stretch becomes 
 with its own start and end. One stretch per thread beat batching them (2026-10-04, 200 s of
 Mandarin on a 12-thread laptop: 2.4 s against 4.1 s), because a batch pads every stretch to
 the longest. The models live in ~/.cache/boson-video/models (SenseVoice about 165 MB,
-Parakeet about 480 MB, each downloaded once with the owner's approval).
+Parakeet about 480 MB). The one a video needs is downloaded from sherpa-onnx's releases the
+first time it is needed (`BOSON_NO_DOWNLOAD=1` turns that off; `boson-video models` fetches
+them ahead of time).
 """
 
 from __future__ import annotations
 
 import os
 import re
+import shutil
+import sys
+import tarfile
 import time
 import wave
 from concurrent.futures import ThreadPoolExecutor
@@ -30,6 +35,8 @@ MODELS = Path(os.environ.get("BOSON_MODELS", Path.home() / ".cache" / "boson-vid
 SENSEVOICE = MODELS / "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
 PARAKEET = MODELS / "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
 VAD = MODELS / "silero_vad.onnx"
+RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
+ARCHIVES = {SENSEVOICE.name: 166, PARAKEET.name: 482}  # MB, as served (checked 2026-10-08)
 RATE = 16_000
 LANGS = {"zh": "zh", "yue": "yue", "en": "en", "ja": "ja", "ko": "ko"}
 _SHOUTED = re.compile(r"(?<![A-Za-z])[A-Z]{4,}(?:'[A-Z]+)?(?![A-Za-z])")  # SenseVoice writes English in capitals
@@ -43,13 +50,73 @@ def available() -> bool:
     return (SENSEVOICE / "model.int8.onnx").exists() and VAD.exists()
 
 
+def downloads_allowed() -> bool:
+    return os.environ.get("BOSON_NO_DOWNLOAD", "").lower() not in ("1", "true", "yes")
+
+
 def model_for(locale: str | None) -> str:
-    """"Parakeet" for English when it is installed, else "SenseVoice"."""
+    """"Parakeet" for English (SenseVoice garbles it), else "SenseVoice". Without downloads, English
+    falls back to SenseVoice when Parakeet isn't on disk."""
     forced = os.environ.get("BOSON_ASR", "").lower()
     if forced in ("sensevoice", "parakeet"):
         return "Parakeet" if forced == "parakeet" else "SenseVoice"
     english = (locale or "").lower().startswith("en")
-    return "Parakeet" if english and (PARAKEET / "encoder.int8.onnx").exists() else "SenseVoice"
+    have = (PARAKEET / "encoder.int8.onnx").exists() or downloads_allowed()
+    return "Parakeet" if english and have else "SenseVoice"
+
+
+def missing(locale: str | None) -> list[tuple[str, int]]:
+    """The model files a video in `locale` still needs: [(name, MB)]."""
+    folder = PARAKEET if model_for(locale) == "Parakeet" else SENSEVOICE
+    need = [] if folder.is_dir() else [(folder.name, ARCHIVES[folder.name])]
+    return need + ([] if VAD.exists() else [(VAD.name, 1)])
+
+
+def ensure_models(locale: str | None, say=None) -> None:
+    """Download what `missing` lists, once, into MODELS. `say(text)` hears about each download."""
+    need = missing(locale)
+    if not need:
+        return
+    if not downloads_allowed():
+        raise SenseVoiceError(f"the speech model isn't in {MODELS} and downloads are off (BOSON_NO_DOWNLOAD); "
+                              "run `boson-video models` to fetch it")
+    MODELS.mkdir(parents=True, exist_ok=True)
+    for name, mb in need:
+        text = f"downloading the speech model {name} (about {mb} MB, once)"
+        print(text, file=sys.stderr, flush=True)
+        if say:
+            say(text)
+        if name == VAD.name:
+            _download(f"{RELEASES}/{name}", VAD)
+            continue
+        part, unpacked = MODELS / f".{name}.tar.bz2", MODELS / f".{name}.unpacked"
+        shutil.rmtree(unpacked, ignore_errors=True)
+        try:
+            _download(f"{RELEASES}/{name}.tar.bz2", part)
+            with tarfile.open(part, "r:bz2") as tar:
+                tar.extractall(unpacked, filter="data")
+            (unpacked / name).rename(MODELS / name)
+        finally:
+            part.unlink(missing_ok=True)
+            shutil.rmtree(unpacked, ignore_errors=True)
+
+
+def _download(url: str, dst: Path) -> None:
+    """Stream `url` to `dst` through a temporary file, so a broken download never looks finished."""
+    import httpx
+
+    tmp = dst.with_name(dst.name + ".part")
+    try:
+        with httpx.stream("GET", url, follow_redirects=True, timeout=60) as r:
+            r.raise_for_status()
+            with tmp.open("wb") as f:
+                for chunk in r.iter_bytes(1 << 20):
+                    f.write(chunk)
+        tmp.replace(dst)
+    except httpx.HTTPError as e:
+        raise SenseVoiceError(f"couldn't download {url}: {e}") from None
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def _recognizer(name: str, locale: str | None):
@@ -133,8 +200,7 @@ def tidy(text: str) -> str:
 
 def transcribe(wav: Path, locale: str | None = None, threads: int | None = None) -> tuple[list[Segment], dict]:
     """The whole recording -> passages, plus timings in ms (decoding overlaps voice detection)."""
-    if not available():
-        raise SenseVoiceError(f"SenseVoice isn't installed in {MODELS}")
+    ensure_models(locale)
     name = model_for(locale)
     clock = time.perf_counter()
     recognizer = _recognizer(name, locale)

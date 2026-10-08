@@ -121,7 +121,7 @@ Layouts by kind of video, for later:
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
-| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried) | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
+| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried). Packaged 2026-10-08: `uvx boson-video mcp` on a fresh machine, no Node, ffmpeg or keys; publishing to PyPI and the MCP Registry is the owner's step | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (owner, 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
 | 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | In progress, 2026-10-07: runs on this computer (`boson-video web`), checked on three videos at desktop and phone size; hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 9) |
@@ -237,12 +237,24 @@ videos on our servers (bot checks and other people's rights).
   codes, no accounts; videos come in as YouTube links or uploaded files (on a server, YouTube
   links come through the extension, milestone 9, as decided on 2026-10-04). It is built as
   `boson-video web`, beside the paste-a-link website `boson-video serve` above.
+- 2026-10-08: **publish the plugin; the repo goes public, MIT licensed.** "Just connect" means
+  the installed plugin first (`uvx boson-video mcp`, listed in the MCP Registry as
+  `io.github.linboxin/boson-video`): it runs on the user's computer, so YouTube works and it costs
+  the owner nothing. The connect-by-address plugin for web apps follows the extension and accounts.
 - 2026-10-06: a new interface for it: simple, no product name on the page, not packed;
   chat-based, answering with good-looking output. Making the plugin show visuals inside
   ChatGPT and Grok comes later.
 
-## Facts to build on (checked 2026-09-24 to 2026-10-06)
+## Facts to build on (checked 2026-09-24 to 2026-10-08)
 
+- A stranger's computer, tested 2026-10-08 with the built package in a fresh home, no Node, no
+  ffmpeg on the PATH and no keys: yt-dlp needs a JavaScript runtime for YouTube, so the package
+  brings Deno (`deno` on PyPI) and the challenge solver (`yt-dlp[default]`), and ffmpeg comes from
+  `imageio-ffmpeg`. On the Mac, Apple's transcriber was built from scratch and had the words of a
+  3:33 video 9.9 s after the start. On the local-model path (forced), SenseVoice's 166 MB downloaded
+  in 17 s on first use and an 11:35 Chinese video had its words in 24.1 s; the plugin told the AI
+  it was a one-time wait. The test found one first-run bug (the home folder didn't exist yet) and
+  it is fixed.
 - The static ffmpeg build on the owner's Mac finds no certificates of its own, so reading
   YouTube's stream failed ("certificate verify failed") and every frame quietly fell back to a
   thumbnail: no screen text on the Mac until `frames.py` handed it certifi's bundle (2026-10-06).

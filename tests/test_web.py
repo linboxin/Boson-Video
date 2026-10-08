@@ -159,3 +159,9 @@ def test_ask_answers_with_frames_keeps_the_note_and_counts_the_question(home, mo
 
 def test_codes_read_the_same_however_they_are_typed():
     assert web.normal("abcd efgh") == web.normal("ABCD-EFGH") == web.normal("abcdefgh") == "ABCD-EFGH"
+
+
+def test_the_first_run_on_a_new_computer_makes_its_home(tmp_path):
+    root = tmp_path / "never-created"
+    code = web.make_invite(root, "owner")
+    assert web.normal(code) in web.invites(root)

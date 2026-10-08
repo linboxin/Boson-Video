@@ -433,7 +433,7 @@
       const eta = st.words_eta ? Math.max(1, Math.round(st.words_eta - Date.now() / 1000)) : null;
       const steps = [
         ["scenes", "Looking at the picture", !!d.video],
-        ["words", stage === "words" && eta ? `Listening · about ${eta} s` : "Listening", !!(d.transcript && d.transcript.length)],
+        ["words", stage === "words" && st.note ? "Getting the speech model (first time only)" : stage === "words" && eta ? `Listening · about ${eta} s` : "Listening", !!(d.transcript && d.transcript.length)],
         ["screens", "Reading the screen", at > STAGES.indexOf("screens")],
         ["summary", "Writing the summary", !!d.summary],
       ];

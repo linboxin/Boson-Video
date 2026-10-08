@@ -11,6 +11,7 @@ browser.
 - `uv run boson-video ask <video> "question"`: the moment that answers it (needs the page to exist)
 - `uv run boson-video serve [--open [<video>]]`: the website on 127.0.0.1:8765: paste a link, read it with the video playing beside it and a working ask box
 - `uv run boson-video web [--hosted] [--host 0.0.0.0] [--port 8770]`: the product page, invite-only, new design (the first run prints your code); `--hosted` refuses YouTube links
+- `uv run boson-video models [zh|en|all]`: fetch the local speech models now (otherwise the first video that needs one downloads it)
 - `uv run boson-video invite [label] [--per-day 10] [--asks 100] | --list | --revoke CODE`: invite codes for it
 - `uv run boson-video mcp`: the plugin (MCP over stdio) for Claude Code, Claude Desktop, Cursor, Codex; setup in `docs/plugin.md`
 - `uv run python scripts/mcp_smoke.py <video> [--no-keys]`: run the plugin like an AI app and call every tool
@@ -69,4 +70,7 @@ browser.
   (Mercury). Never commit keys.
 - Don't try to get around YouTube's bot checks (PO tokens, player API clients). The
   Chrome extension is the route for that.
-- Ask the owner before downloading models or media. `docs/DIRECTION.md` lists what is pending.
+- Ask the owner before downloading models or media onto the owner's machines. `docs/DIRECTION.md` lists what is pending.
+  (On a user's computer the plugin downloads its speech model on first use and says so: that is the product.)
+- Publishing: `uv build`, then `uv publish` (PyPI) and `mcp-publisher publish` (the registry, from `server.json`).
+  Keep the version the same in `pyproject.toml`, `src/boson_video/__init__.py` and `server.json`.

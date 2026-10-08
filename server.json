@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.linboxin/boson-video",
+  "title": "Boson Video",
+  "description": "Let your AI read any video: timed transcript, full-resolution frames, screen text, claim checks.",
+  "repository": {
+    "url": "https://github.com/linboxin/Boson-Video",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "boson-video",
+      "version": "0.2.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "TYPESAFE_API_KEY",
+          "description": "Optional. Jev checks claims by meaning; without it, code checks the numbers.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

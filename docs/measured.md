@@ -86,3 +86,10 @@ characters on both sides).
 A question in the product page ("What does Insilico Medicine use AI for, and how much time did it
 save?") was answered in 2.9 s, both sentences checked, with three slides; on the English video,
 "Which model was the slowest step using, and what did it cost?" in 6.0 s, 1 of 1 checked.
+
+## A stranger's computer (2026-10-08, the built package via uvx, fresh home, no Node, no keys)
+
+| Path | Video | Scenes | Words ready | Breakdown |
+| --- | --- | --- | --- | --- |
+| Mac, Apple's transcriber (built on first use) | Rick Astley (English, 3:33) | 2.0 s | 9.9 s | download 5.7 · prep 3.1 · speech 1.2 s |
+| Local models, first use (SenseVoice downloaded) | 程序员老王, abliteration (Chinese, 11:35) | 1.3 s | 24.1 s | download 1.6 · prep 0.6 · model download 17.0 · load 1.1 · voice detection 1.8 · speech 1.9 s |

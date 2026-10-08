@@ -131,7 +131,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
         if words and not tl.transcript:
             stage = "words"
             _write_status(where, stage=stage, started=started, words_eta=started + words_estimate(tl.video.duration))
-            add_words(tl, where)
+            add_words(tl, where, say=lambda text: _write_status(where, stage=stage, started=started, note=text))
             library.save(tl, where)
         if words and "screens" not in tl.timings and screens.available():
             stage = "screens"

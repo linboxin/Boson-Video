@@ -141,7 +141,7 @@ def test_open_builds_in_the_background_and_reports_progress(home, monkeypatch):
         tl.transcript, tl.translation, tl.terms = [], [], []
         return tl
 
-    def fake_words(tl, where, locale=None, fresh_audio=False):
+    def fake_words(tl, where, locale=None, fresh_audio=False, say=None):
         time.sleep(0.6)
         tl.transcript = [Segment(1, 2, "你好")]
 

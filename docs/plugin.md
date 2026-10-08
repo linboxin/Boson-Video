@@ -14,24 +14,44 @@ AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search ad
 | `video_check(video, claim, at)` | The claim against what was said and shown at those moments, and which checker judged it |
 | `video_list()` | The videos opened so far |
 
-Claude Code:
+## Install
 
-```bash
-claude mcp add boson-video -- uv --directory /path/to/Boson-Video run boson-video mcp
-```
+It needs [uv](https://docs.astral.sh/uv/) and nothing else: no clone, no ffmpeg, no Node (both come
+with the package).
 
-Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
+| App | How |
+| --- | --- |
+| Claude Code | `claude mcp add boson-video -- uvx boson-video mcp` |
+| Claude Desktop | `claude_desktop_config.json`: `{ "mcpServers": { "boson-video": { "command": "uvx", "args": ["boson-video", "mcp"] } } }` |
+| Cursor | `.cursor/mcp.json`: the same JSON |
+| Codex | `~/.codex/config.toml`: `[mcp_servers.boson-video]` with `command = "uvx"` and `args = ["boson-video", "mcp"]` |
 
-```json
-{
-  "mcpServers": {
-    "boson-video": {
-      "command": "uv",
-      "args": ["--directory", "/path/to/Boson-Video", "run", "boson-video", "mcp"]
-    }
-  }
-}
-```
+Optional: add `"env": { "TYPESAFE_API_KEY": "…" }` (or `env = { TYPESAFE_API_KEY = "…" }` in Codex)
+so Jev checks claims by meaning. Videos are kept in `~/.boson-video` (`BOSON_VIDEO_HOME` moves them).
+
+**The first video.** On a Mac with macOS 26 and Xcode's command line tools, Apple's transcriber
+does the words, with nothing to download. Anywhere else (Windows, Linux, an older Mac) the plugin
+downloads one speech model the first time a video needs it: SenseVoice for Chinese (about 166 MB)
+or Parakeet for English (about 482 MB), into `~/.cache/boson-video/models`. Your AI is told it is a
+one-time wait. `uvx boson-video models` fetches them ahead of time; `BOSON_NO_DOWNLOAD=1` forbids
+downloads.
+
+## How the intelligence works
+
+Three jobs, done by different hands:
+
+| Job | Who does it | What it costs |
+| --- | --- | --- |
+| **Sense:** the scene map, the transcript, full-resolution frames, the text on screen | This package, on your computer: storyboards and ffmpeg, Apple's transcriber or SenseVoice and Parakeet, RapidOCR | Nothing: no keys, no servers |
+| **Judge:** is this claim supported by what was said and shown? | Code always compares the numbers; Jev judges the meaning when `TYPESAFE_API_KEY` is set | Nothing without the key |
+| **Speak:** explain, summarize, answer, teach | **Your own AI** (Claude, GPT, whatever runs in your app) | Your usual AI plan |
+
+So no writing model of ours runs in the plugin. Your AI gets a briefing when it opens a video (what
+it is, the chapters, what the picture does, how to cite), then decides what to read: a stretch of the
+transcript, the frames where something new appears (it sees them as images), a search, a check.
+It answers you in its own words, and every claim carries the second it came from, so you can click
+through and see for yourself. Text from the video is marked as the video's content, never as
+instructions to your AI.
 
 **In web apps (ChatGPT, claude.ai, Grok).** These call the plugin from their own servers, so it
 needs a public address. Run it over HTTP and put a tunnel in front; videos are still downloaded

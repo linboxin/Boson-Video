@@ -127,6 +127,7 @@ def _save_state(root: Path, cid: str, st: dict) -> None:
 
 
 def _write_json(path: Path, obj) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)  # a new computer has no home folder yet
     tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
     os.replace(tmp, path)

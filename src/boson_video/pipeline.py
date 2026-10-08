@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -75,11 +76,25 @@ def from_file(path: str) -> Timeline:
     return Timeline(video=video, frames=frames, sheets=sheets, scenes=found, timings=clock.laps)
 
 
-def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio: bool = False) -> None:
+def apple_transcriber(locale: str) -> bool:
+    """Apple's transcriber can take this video: a Mac with macOS 26 and Xcode's command line tools,
+    and the language supported. Otherwise (an older Mac, no Xcode) the local models take over."""
+    if sys.platform != "darwin" or os.environ.get("BOSON_ASR", "").lower() in ("sensevoice", "parakeet"):
+        return False
+    try:
+        speech.ensure(locale)
+        return True
+    except (speech.SpeechError, OSError) as e:
+        print(f"Apple's transcriber isn't available ({e}); using the local speech models", file=sys.stderr)
+        return False
+
+
+def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio: bool = False, say=None) -> None:
     """Fill in what was said: fetch the audio, then transcribe it on this computer.
 
-    On a Mac, Apple's transcriber runs on pieces cut at pauses, all at once. Elsewhere
-    SenseVoice transcribes the stretches of speech its voice detector finds.
+    On a Mac, Apple's transcriber runs on pieces cut at pauses, all at once. Elsewhere (and on a
+    Mac without it) SenseVoice or Parakeet transcribes the stretches of speech its voice detector
+    finds, downloading its model the first time. `say(text)` hears about a download.
     """
     clock = Stopwatch()
     folder.mkdir(parents=True, exist_ok=True)
@@ -90,12 +105,11 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
         src = Path(tl.video.url)
     wav = audio.to_wav(src, folder / "audio16k.wav")
     locale = locale or audio.track_language(folder) or speech.guess_locale(tl.video.title, tl.video.description)
-    if sys.platform == "darwin":
+    if apple_transcriber(locale):
         total = audio.duration(wav)
         plan = audio.plan_pieces(total, audio.silences(wav), audio.piece_count(total))
         pieces = audio.cut(wav, plan, folder)
         clock.lap("audio prep")
-        speech.ensure(locale)
         tl.transcript = speech.transcribe(pieces, locale)
         tl.transcriber = "Apple SpeechAnalyzer"
         clock.lap("speech")
@@ -104,6 +118,8 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     else:
         clock.lap("audio prep")
         try:
+            sensevoice.ensure_models(locale, say)
+            clock.lap("model download")
             tl.transcript, laps = sensevoice.transcribe(wav, locale)
         except sensevoice.SenseVoiceError as e:
             raise speech.SpeechError(str(e)) from None

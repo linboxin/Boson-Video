@@ -1,34 +1,61 @@
 # Boson-Video
 
-**Read any video like a document.** Paste a YouTube link or drop a video file. Every line of the
-summary, the transcript and the screen text carries the second it came from, and questions are
-answered from the video and checked against it.
+**Get the point of any video without watching all of it.** Paste a YouTube link or drop a video
+file. Every line of the summary, the transcript and the screen text carries the second it came
+from, and questions are answered from the video and checked against it.
 
-![A video read in Boson-Video: the player and the ribbon on the left, the terms explained on the right](docs/screenshot.jpg)
+<!-- mcp-name: io.github.linboxin/boson-video -->
+
+![A video read in Boson-Video: the player and the ribbon on the left, the terms explained on the right](https://raw.githubusercontent.com/linboxin/Boson-Video/main/docs/screenshot.jpg)
 
 - **The ribbon:** the whole video on one strip (scenes, chapters, most replayed). Hover to see any second's frame and words.
 - **Summary:** sections with their frames; every sentence timed and checked (✓ ? ✗).
 - **Transcript:** the original with English beneath, technical terms explained, on-screen text read in.
 - **Ask:** answers that cite their moments and show the frames, with background kept apart.
-- **Your own AI:** the same document as an MCP plugin for Claude, Cursor, Codex and ChatGPT.
+- **Your own AI:** the same document as an MCP plugin for Claude, Cursor, Codex and more.
 
 Built for long talks, lectures and finance videos in a language you half know (Chinese and English today).
 
-## Run it
+## In your own AI
+
+One line, nothing else to install ([uv](https://docs.astral.sh/uv/) runs it):
 
 ```bash
-uv sync
-uv run boson-video web          # http://127.0.0.1:8770; the first run prints your invite code
+claude mcp add boson-video -- uvx boson-video mcp
 ```
 
-More codes: `uv run boson-video invite "a friend"` (also `--list`, `--revoke CODE`). Keys go in
-`.env`: `INCEPTION_API_KEY` (Mercury writes the summary) and `TYPESAFE_API_KEY` (Jev checks it and
-answers questions). Without keys you still get the scenes, the transcript and search.
+Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
+
+```json
+{ "mcpServers": { "boson-video": { "command": "uvx", "args": ["boson-video", "mcp"] } } }
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.boson-video]
+command = "uvx"
+args = ["boson-video", "mcp"]
+```
+
+Then ask your AI about any YouTube link. It opens the video, reads the transcript, looks at the
+frames that matter at full resolution, searches, and checks its claims, citing every moment. No
+keys needed. Everything runs on your computer. Details: [docs/plugin.md](https://github.com/linboxin/Boson-Video/blob/main/docs/plugin.md).
+
+## Run the page
+
+```bash
+uvx boson-video web             # http://127.0.0.1:8770; the first run prints your invite code
+```
+
+Keys make it fuller: `INCEPTION_API_KEY` (Mercury writes the summary, the English and the terms)
+and `TYPESAFE_API_KEY` (Jev checks every sentence and answers questions). Without them you still get
+the scenes, the transcript and search.
 
 ## Tested videos
 
 Measured, one run each unless a range is shown. Mac: M5 MacBook with Apple's transcriber. Windows: a 12-thread laptop with
-SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](docs/measured.md).
+SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](https://github.com/linboxin/Boson-Video/blob/main/docs/measured.md).
 
 | Video | Length | Scene map | Words | Transcript errors¹ | Screen text | Summary ✓ |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -44,32 +71,23 @@ SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](docs/measured
 ¹ Against human captions (`scripts/accuracy.py`); about half the English errors are filler words the captions leave out.
 Summary ✓: sentences confirmed against what was said (Jev and code).
 
-## In your own AI
-
-```bash
-claude mcp add boson-video -- uv --directory /path/to/Boson-Video run boson-video mcp
-```
-
-Your AI can open a video, read it, look at frames at full resolution, search and check claims. It
-works with no keys. Cursor, Claude Desktop and web apps: [docs/plugin.md](docs/plugin.md).
-
 ## Command line
 
 ```bash
-uv run boson-video <link | id | file>        # build a video: scenes, words, screen text, summary
-uv run boson-video ask <video> "question"    # the moment that answers it
-uv run boson-video serve                     # the local paste-a-link website
-uv run pytest                                # tests (offline); -m live hits YouTube
+uvx boson-video <link | id | file>        # build a video: scenes, words, screen text, summary
+uvx boson-video ask <video> "question"    # the moment that answers it
+uvx boson-video models                    # fetch the local speech models now instead of on first use
 ```
+
+From a clone: `uv sync`, then `uv run boson-video …`; `uv run pytest` runs the tests (offline).
 
 ## More
 
-- [docs/DIRECTION.md](docs/DIRECTION.md): what we're building, milestones, decisions
-- [docs/workflow.md](docs/workflow.md): how the workflow is designed: stages, the document, the ways in
-- [docs/how-it-works.md](docs/how-it-works.md): the pipeline, what YouTube allows, limits
-- [docs/measured.md](docs/measured.md): speed and accuracy, as measured
-- [docs/timeline-format.md](docs/timeline-format.md): the document format, for other tools
-- [AGENTS.md](AGENTS.md): the guide for coding agents
+- [docs/workflow.md](https://github.com/linboxin/Boson-Video/blob/main/docs/workflow.md): how the workflow is designed: stages, the document, the ways in
+- [docs/how-it-works.md](https://github.com/linboxin/Boson-Video/blob/main/docs/how-it-works.md): the pipeline, what YouTube allows, limits
+- [docs/DIRECTION.md](https://github.com/linboxin/Boson-Video/blob/main/docs/DIRECTION.md): what we're building, milestones, decisions
+- [docs/timeline-format.md](https://github.com/linboxin/Boson-Video/blob/main/docs/timeline-format.md): the document format, for other tools
+- [AGENTS.md](https://github.com/linboxin/Boson-Video/blob/main/AGENTS.md): the guide for coding agents
 
-A personal research prototype. YouTube's terms don't allow automated access for products, which is
-why shared use of YouTube links waits for the browser extension.
+MIT licensed. YouTube's terms don't allow automated access for products, so everything that touches
+YouTube runs on your own computer.

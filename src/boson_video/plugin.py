@@ -91,6 +91,8 @@ def _words_status(name: str, tl: Timeline, root: Path | None) -> str:
         by = f", transcribed by {tl.transcriber}" if tl.transcriber else ""
         return f"words ready: {len(tl.transcript)} passages in {_language(tl)}{by} (machine transcript)"
     state = jobs.status(name, root)
+    if state["stage"] == "words" and state.get("note"):
+        return f"{state['note']}; transcribing comes next. Tell the user it's a one-time wait, and call video_open again in a minute"
     if state["stage"] == "words" and state.get("words_eta"):
         import time
 

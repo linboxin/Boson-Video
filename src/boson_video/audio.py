@@ -7,6 +7,7 @@ time. Cutting at pauses (silences ffmpeg finds) keeps words whole at the seams.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -27,6 +28,18 @@ class AudioError(RuntimeError):
     pass
 
 
+def js_runtimes() -> list[str]:
+    """yt-dlp solves YouTube's JavaScript challenges with an outside runtime: the Deno that comes
+    with the package (`deno` on PyPI), else Node if this computer has it."""
+    try:
+        import deno
+
+        return ["--js-runtimes", f"deno:{deno.find_deno_bin()}"]
+    except (ImportError, OSError, RuntimeError):
+        node = shutil.which("node")
+        return ["--js-runtimes", f"node:{node}"] if node else []
+
+
 def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
     """Download only the audio track (cached in `folder` unless `fresh`)."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -36,7 +49,7 @@ def fetch_youtube(video_id: str, folder: Path, fresh: bool = False) -> Path:
     for old in cached:
         old.unlink()
     cmd = [
-        sys.executable, "-m", "yt_dlp", "-f", SPEECH_FORMAT, "--js-runtimes", "node",
+        sys.executable, "-m", "yt_dlp", "-f", SPEECH_FORMAT, *js_runtimes(),
         "-o", str(folder / "audio.%(ext)s"), "--no-progress", "--quiet", "--no-warnings",
         "--print", "after_move:%(language)s", f"https://www.youtube.com/watch?v={video_id}",
     ]

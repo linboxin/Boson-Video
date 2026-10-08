@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
         from .web import main as web_main
 
         return web_main(argv[1:])
+    if argv[:1] == ["models"]:
+        return models_main(argv[1:])
     if argv[:1] == ["invite"]:
         from .web import invite_main
 
@@ -214,6 +216,25 @@ def _clock(t: float) -> str:
     t = int(t)
     h, m, s = t // 3600, t // 60 % 60, t % 60
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
+def models_main(argv: list[str]) -> int:
+    """boson-video models [zh|en|all]: fetch the local speech models now rather than on first use
+    (Apple's transcriber needs none, on a Mac with macOS 26)."""
+    from . import sensevoice
+
+    ap = argparse.ArgumentParser(prog="boson-video models", description=models_main.__doc__)
+    ap.add_argument("which", nargs="?", default="all", choices=["zh", "en", "all"])
+    args = ap.parse_args(argv)
+    os.environ.pop("BOSON_NO_DOWNLOAD", None)
+    for locale in {"zh": ["zh_CN"], "en": ["en_US"], "all": ["zh_CN", "en_US"]}[args.which]:
+        try:
+            sensevoice.ensure_models(locale)
+        except sensevoice.SenseVoiceError as e:
+            print(f"boson-video: {e}", file=sys.stderr)
+            return 1
+    print(f"speech models ready in {sensevoice.MODELS}")
+    return 0
 
 
 def _write(tl: Timeline, folder: Path) -> Path:

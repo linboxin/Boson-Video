@@ -25,6 +25,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from .audio import js_runtimes
 from .local import ffmpeg
 from .timeline import Timeline
 
@@ -123,7 +124,7 @@ def _source(tl: Timeline, where: Path) -> str:
         saved = json.loads(cache.read_text(encoding="utf-8"))
         if time.time() - saved.get("at", 0) < STREAM_TTL:
             return saved["url"]
-    cmd = [sys.executable, "-m", "yt_dlp", "-g", "-f", STREAM_FORMAT, "--js-runtimes", "node", "--no-warnings",
+    cmd = [sys.executable, "-m", "yt_dlp", "-g", "-f", STREAM_FORMAT, *js_runtimes(), "--no-warnings",
            f"https://www.youtube.com/watch?v={tl.video.id}"]
     done = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     lines = [x for x in done.stdout.splitlines() if x.startswith("http")]
