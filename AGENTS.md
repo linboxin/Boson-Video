@@ -46,7 +46,7 @@ browser.
 - `render.py`: the self-contained read view (ribbon, summary with language switch, search, scenes); a little JS, no libraries
 - `pipeline.py`: `build` (scenes), `add_words` (speech), `add_summary` (write + check), with per-stage timings · `cli.py`: entry point
 - `timeline.py`: the shared data model; `timeline.json` is the contract between stages and for other tools, versioned, spec in `docs/timeline-format.md`
-- `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design)
+- `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design); `deploy.md`: how the owner hosts it (Dockerfile, Coolify, the Vercel address), kept out of the README
 
 ## Rules
 

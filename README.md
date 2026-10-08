@@ -44,15 +44,6 @@ SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](docs/measured
 ¹ Against human captions (`scripts/accuracy.py`); about half the English errors are filler words the captions leave out.
 Summary ✓: sentences confirmed against what was said (Jev and code).
 
-## On a server
-
-The `Dockerfile` runs the site in uploads-only mode (YouTube downloads stay on the user's side).
-In Coolify: a new resource from this repo, build pack **Dockerfile**, port **8770**, your domain, a
-volume at **`/data`**, and the two keys as environment variables. The first start downloads the
-speech models (about 650 MB) and prints your invite code in the logs. To give it a free `*.vercel.app`
-address, deploy `deploy/vercel/` on Vercel (its `vercel.json` forwards every request to the
-server) and set `BOSON_PUBLIC_URL` on the server to that address.
-
 ## In your own AI
 
 ```bash
