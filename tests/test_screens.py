@@ -102,15 +102,19 @@ def home(tmp_path, monkeypatch):
 
 def test_reading_search_and_checks_include_the_screen(home):
     text = plugin.read("abcdefghijk")
-    assert "[0:05] ON SCREEN: KL = 0.08" in text and "[0:10] ON SCREEN: KL = 2.71" in text
-    assert text.index("ON SCREEN: KL = 0.08") < text.index("用 KL 散度量化")  # in time order
+    assert "[0:05] delta: KL = 0.08" in text and "[0:10] delta: KL = 2.71" in text
+    assert "frames/" not in text  # a path on this computer means nothing to an AI elsewhere
+    assert text.index("delta: KL = 0.08") < text.index("用 KL 散度量化")  # in time order
     assert "KL散度的公式" not in text  # subtitles are the speech; they don't repeat in the reading
-    assert "[0:10] ON SCREEN: KL = 2.71" in plugin.search("2.71")
-    # a number shown only on screen can be confirmed
+    assert "[0:10] delta: KL = 2.71" in plugin.search("2.71")
+    # a number shown only on screen can be confirmed, cited as the same moment
     ok = plugin.check("abcdefghijk", "The KL value for the broken model was 2.71", ["0:11"])
-    assert "every number in the claim is in these passages" in ok and "[on screen] KL = 2.71" in ok
+    assert "every number in the claim is in these passages" in ok and "[delta] KL = 2.71" in ok
     briefing = plugin.briefing("abcdefghijk")
-    assert "Screen text: read at 2 moments, 2 with text" in briefing and "subtitles at 1 of them" in briefing
+    assert "Screen text: read at 2 moments" in briefing and "subtitles at 1" in briefing
+    assert "Moments:" in briefing and "2 delta" in briefing and "video_frames(at=[time])" in briefing
+    page = (home / "abcdefghijk" / "index.html").read_text(encoding="utf-8")
+    assert 'src="frames/10000.jpg"' in page and "Added" in page and "KL = 2.71" in page
 
 
 def test_real_ocr_reads_a_drawn_slide(tmp_path):
@@ -131,4 +135,6 @@ def test_real_ocr_reads_a_drawn_slide(tmp_path):
 def test_a_frame_caption_carries_its_screen_text(home):
     shots = plugin.frames("abcdefghijk", at=["0:11"])
     caption = shots.shots[0][0] if shots.shots else ""
-    assert "On screen (read by OCR): KL = 0.08 | KL = 2.71" in caption  # the scene's lines up to then
+    assert "Moment [0:10] delta." in caption and "frames/" not in caption
+    # the whole screen up to then, not just the step: ChatGPT may never see the image itself
+    assert "On screen (read by OCR): KL = 0.08 | KL = 2.71" in caption

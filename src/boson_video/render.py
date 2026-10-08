@@ -114,6 +114,11 @@ a.ts:hover,a.ts:focus-visible{text-decoration:underline}
 .ln .t-orig{font:17px/2.1 var(--read)}
 .ln.now{background:var(--now)}
 .screen-row p{margin:2px 0 0;font:14px/1.6 var(--ui);color:var(--muted);border-left:2px solid var(--line);padding-left:10px}
+.screen-row img{display:block;max-width:min(100%,480px);height:auto;margin-top:6px;border-radius:6px;border:1px solid var(--line)}
+.screen-row .watch{margin-left:10px;font:600 12.5px/1 var(--ui);color:var(--accent)}
+.build{position:sticky;top:0;z-index:20;padding:9px 16px;background:var(--now);color:var(--fg);font:13.5px/1.4 var(--ui);border-bottom:1px solid var(--line)}
+.build[hidden]{display:none}
+.build button{margin-left:6px;padding:3px 10px;font:600 13px/1.4 var(--ui);color:#fff;background:var(--accent);border:0;border-radius:6px;cursor:pointer}
 .ln[hidden]{display:none}
 .ln mark.hit{background:color-mix(in srgb,var(--heat) 32%,transparent);color:inherit;border-radius:2px}
 .chapter-row{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:16px 8px 4px;border-top:1px solid var(--line);margin-top:8px;list-style:none}
@@ -351,7 +356,7 @@ JS = """
       if (hit && needle) { shown++; markText(li, needle); }
     });
     document.querySelectorAll(".chapter-row").forEach(r => r.hidden = !!needle);
-    $("q-count").textContent = needle ? (shown ? shown + " line" + (shown > 1 ? "s" : "") : "Not said in this video.") : "";
+    $("q-count").textContent = needle ? (shown ? shown + " line" + (shown > 1 ? "s" : "") : "Not in this video.") : "";
   });
   function markText(root, needle) {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -475,6 +480,32 @@ JS = """
     }
     return li;
   }
+
+  // ---- a build still running (served pages only): say what's coming, and show it when it lands
+  const bar = $("build");
+  const STAGES = { queued: "Starting", scenes: "Mapping the scenes", words: "Transcribing the words",
+                   screens: "Reading what is on screen", summary: "Writing the summary" };
+  let drawnAt = null;
+  async function building() {
+    let s;
+    try { s = await (await fetch("/api/status?v=" + encodeURIComponent(D.key))).json(); } catch { return; }
+    if (drawnAt === null) drawnAt = s.stage;
+    if (s.stage !== drawnAt && drawnAt in STAGES) {  // the page on disk was redrawn with more in it
+      if (!playing) return location.reload();
+      bar.hidden = false; bar.textContent = "More is ready. ";
+      const b = el("button", null, "Show it"); b.addEventListener("click", () => location.reload()); bar.append(b);
+      return;
+    }
+    if (s.stage in STAGES) {
+      bar.hidden = false;
+      bar.textContent = STAGES[s.stage] + (s.eta_s ? ", about " + s.eta_s + " s left" : "") + "… this page fills in by itself.";
+      setTimeout(building, 1500);
+    } else if (s.stage === "error" || s.stage === "stopped") {
+      bar.hidden = false;
+      bar.textContent = s.stage === "error" ? "The build stopped: " + s.error : "The build stopped before it finished; open the link again from the library.";
+    }
+  }
+  if (served && bar) building();
 })();
 """
 
@@ -520,6 +551,7 @@ def render(tl: Timeline) -> str:
 <style>{CSS}{sheets_css}</style>
 </head>
 <body class="lang-{lang}" data-lang="{lang}">
+<div id="build" class="build" role="status" hidden></div>
 <div class="app">
 <header class="top">
 <div class="eyebrow">{eyebrow}</div>
@@ -691,26 +723,52 @@ def _transcript(tl: Timeline) -> str:
     chapters = sorted(tl.chapters, key=lambda c: c.start)
     rows, ci = [], 0
     lang = _e(_lang_attr(tl))
-    shown = [sc for sc in tl.screens if sc.text]
+    shown = _picture_rows(tl)
     for i, seg in enumerate(tl.transcript):
         while ci < len(chapters) and chapters[ci].start <= seg.start + 0.5:
             rows.append(f'<li class="chapter-row">{_e(chapters[ci].title)}</li>')
             ci += 1
-        while shown and shown[0].t <= seg.start + 0.5:
-            sc = shown.pop(0)
-            rows.append(f'<li class="ln screen-row"><a class="ts" href="{_e(tl.video.link(sc.t))}">{_clock(sc.t)}</a>'
-                        f'<div><span class="lbl">On screen</span><p>{"<br>".join(_e(x) for x in sc.text.splitlines())}</p></div></li>')
+        while shown and shown[0][0] <= seg.start + 0.5:
+            _, row = shown.pop(0)
+            rows.append(row)
         en = f'<p class="t-en" lang="en">{_e(english[i])}</p>' if english and english[i] else ""
         rows.append(
             f'<li class="ln" id="p{i}" data-t="{seg.start:.2f}"><a class="ts" href="{_e(tl.video.link(seg.start))}">{_clock(seg.start)}</a>'
             f'<div><p class="t-orig" lang="{lang}">{_gloss(seg.text, find, tl.terms, seen)}</p>{en}</div></li>'
         )
+    rows.extend(row for _, row in shown)
     follow = '<label class="follow"><input type="checkbox" id="follow" checked> Follow the video</label>' if tl.video.id else ""
     terms_hint = ' <span class="term" style="cursor:default">Underlined terms</span> open an explanation.' if tl.terms else ""
     return f"""<h2 class="sr">Transcript</h2>
 <div class="tools"><label class="search" for="q"><span class="sr">Search what was said</span><input id="q" type="search" placeholder="Search what was said, in either language" autocomplete="off"></label>{follow}<span id="q-count" class="note" aria-live="polite"></span></div>
 <p class="note" style="margin:0 0 8px">Machine transcript{f" ({_e(tl.transcriber)})" if tl.transcriber else ""}{", English by Mercury" if english else ""}.{terms_hint}</p>
 <ol class="transcript">{"".join(rows)}</ol>"""
+
+
+def _picture_rows(tl: Timeline) -> list[tuple[float, str]]:
+    """Picture changes in time order: (time, html). Moments when the document has them, else screen text.
+    A stretch the document can't hold (in motion, or no frame) says so and links the range to watch."""
+    labels = {"state": "On screen", "delta": "Added", "trajectory": "In motion", "seek": "Not captured"}
+    if tl.moments:
+        rows = []
+        for m in tl.moments:
+            if not (m.text or m.image or m.code == "seek"):
+                continue
+            at = m.start if m.code in ("trajectory", "seek") else m.t
+            img = (f'<img src="{_e(m.image)}" alt="The picture at {_clock(m.t)}" loading="lazy" decoding="async">'
+                   if m.image else "")
+            text = "<br>".join(_e(x) for x in m.text.splitlines())
+            if m.code == "seek":
+                text = "The picture changed here and no frame of it could be read."
+            body = f"<p>{text}</p>" if text else ""
+            watch = (f'<a class="watch" href="{_e(tl.video.link(m.start))}">Watch {_clock(m.start)}–{_clock(m.end)}</a>'
+                     if m.code in ("trajectory", "seek") else "")
+            rows.append((m.t, f'<li class="ln screen-row" data-t="{at:.2f}"><a class="ts" href="{_e(tl.video.link(at))}">{_clock(at)}</a>'
+                         f'<div><span class="lbl">{labels[m.code]}</span>{watch}{img}{body}</div></li>'))
+        return rows
+    return [(sc.t, f'<li class="ln screen-row" data-t="{sc.t:.2f}"><a class="ts" href="{_e(tl.video.link(sc.t))}">{_clock(sc.t)}</a>'
+             f'<div><span class="lbl">On screen</span><p>{"<br>".join(_e(x) for x in sc.text.splitlines())}</p></div></li>')
+            for sc in tl.screens if sc.text]
 
 
 def _term_finder(terms: list[Term]):

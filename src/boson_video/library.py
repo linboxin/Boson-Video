@@ -50,11 +50,19 @@ def load(name: str, root: Path | None = None, with_sheets: bool = False) -> Time
             path = where / "sheets" / f"{i}.jpg"
             if path.exists():
                 sheets.append(Sheet(path.read_bytes(), size["width"], size["height"]))
-    return Timeline.from_json(data, sheets)
+    tl = Timeline.from_json(data, sheets)
+    if tl.scenes:  # rebuilt on every load: frames fetched since the last save become part of their moment
+        from .moments import assemble
+
+        assemble(tl, where)
+    return tl
 
 
 def save(tl: Timeline, where: Path) -> Path:
     """Write the page, the document and the sheets; returns the page."""
+    from .moments import assemble
+
+    assemble(tl, where)
     where.mkdir(parents=True, exist_ok=True)
     page = where / "index.html"
     page.write_text(render(tl), encoding="utf-8")

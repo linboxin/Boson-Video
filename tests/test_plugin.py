@@ -289,3 +289,60 @@ def test_the_page_answers_a_question_end_to_end(home, monkeypatch):
         assert "Your videos" in urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=10).read().decode()
     finally:
         httpd.shutdown()
+
+
+def test_the_website_opens_a_pasted_link_and_serves_its_frames(home, monkeypatch):
+    """Paste a link: the server starts the same background build the plugin uses, then reports it."""
+    import threading
+    import urllib.error
+    import urllib.request
+
+    from boson_video import server
+
+    library.save(_tl(), library.folder("abcdefghijk"))
+    (library.folder("abcdefghijk") / "frames").mkdir()
+    (library.folder("abcdefghijk") / "frames" / "5000.jpg").write_bytes(b"\xff\xd8jpeg")
+    started = []
+    monkeypatch.setattr(jobs, "start", lambda ref, root=None, words=True: started.append(ref) or library.key(ref))
+    httpd = server.serve(home, port=0)
+    port = httpd.server_address[1]
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{port}"
+
+    def post(url, headers=None):
+        req = urllib.request.Request(f"{base}/api/open", json.dumps({"url": url}).encode(),
+                                     {"Content-Type": "application/json", **(headers or {})})
+        try:
+            r = urllib.request.urlopen(req, timeout=10)
+            return r.status, json.load(r)
+        except urllib.error.HTTPError as e:
+            return e.code, json.load(e)
+
+    try:
+        assert 'id="open-form"' in urllib.request.urlopen(base + "/", timeout=10).read().decode()
+        status, reply = post("https://youtu.be/abcdefghijk?si=x")
+        assert status == 200 and reply["key"] == "abcdefghijk" and reply["page"] is True
+        assert started == ["https://www.youtube.com/watch?v=abcdefghijk"]  # a clean link, never a path
+        assert post("C:/Windows/win.ini")[0] == 400 and post("https://example.com/x")[0] == 400
+        assert post("https://youtu.be/abcdefghijk", {"Origin": "https://evil.example"})[0] == 403
+        assert len(started) == 1
+        status = json.load(urllib.request.urlopen(f"{base}/api/status?v=zzzzzzzzzzz", timeout=10))
+        assert status["stage"] == "missing" and status["page"] is False
+        frame = urllib.request.urlopen(f"{base}/v/abcdefghijk/frames/5000.jpg", timeout=10)
+        assert frame.headers["Content-Type"] == "image/jpeg" and frame.read() == b"\xff\xd8jpeg"
+        for bad in ("/v/abcdefghijk/frames/..%2Ftimeline.json", "/v/abcdefghijk/frames/9.jpg", "/v/abcdefghijk/notes.json"):
+            with pytest.raises(urllib.error.HTTPError):
+                urllib.request.urlopen(base + bad, timeout=10)
+    finally:
+        httpd.shutdown()
+
+
+def test_a_build_left_behind_by_another_process_reads_as_stopped(home):
+    from boson_video import server
+
+    where = library.folder("abcdefghijk")
+    jobs._write_status(where, stage="words", started=time.time() - 3600)
+    status = json.loads((where / "status.json").read_text(encoding="utf-8"))
+    status["updated"] = time.time() - server.STALE - 5
+    (where / "status.json").write_text(json.dumps(status), encoding="utf-8")
+    assert server.build_status(home, "abcdefghijk")["stage"] == "stopped"

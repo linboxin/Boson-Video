@@ -181,10 +181,10 @@ def ask_main(argv: list[str]) -> int:
 
 
 def serve_main(argv: list[str]) -> int:
-    """boson-video serve: the pages with the video playing beside them and a working ask box."""
+    """boson-video serve: the website. Paste a link; read it with the video beside it and a working ask box."""
     from .server import serve
 
-    ap = argparse.ArgumentParser(prog="boson-video serve", description="Serve the pages on this computer, with asking.")
+    ap = argparse.ArgumentParser(prog="boson-video serve", description="The website, on this computer: paste a YouTube link and read it.")
     ap.add_argument("-o", "--out", help="where videos are kept (default: BOSON_VIDEO_HOME, else ~/.boson-video)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--open", metavar="VIDEO", nargs="?", const="", help="open the library, or one video, in the browser")

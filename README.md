@@ -1,8 +1,10 @@
 # Boson-Video
 
 Read any video like a document. Boson-Video turns a YouTube link (or a video file) into a
-document where every line carries the second it came from, and lets **your own AI** read it
-through a plugin (no keys needed), or gives you one page, filled in as each stage finishes:
+document where every line carries the second it came from. Two ways in: **the website**, where
+you paste a link and read (`boson-video serve`, on your computer), and **the plugin**, which
+lets your own AI or agent read the same document (no keys needed). Each video's page fills in
+as each stage finishes:
 
 1. **Scenes, in about a second:** every new visual and when it appears, the shots that keep
    coming back, the chapters and YouTube's "most replayed" curve, on a ribbon you drag to
@@ -19,7 +21,14 @@ uv run boson-video 9JKT5rBbrwM --lang zh_CN     # speech language; guessed from 
 uv run boson-video 9JKT5rBbrwM --no-words       # scenes only
 uv run boson-video ask zjkBMFhNj_g "how much does it cost to train llama 2?"   # → 5:20
 uv run boson-video serve --open qbReD1cGykQ    # the page with the video beside it, and asking
+uv run boson-video serve --open                # the website: paste a YouTube link on the front page
 ```
+
+**The website.** `boson-video serve` serves 127.0.0.1:8765. Paste a YouTube link on the front
+page: the video's page opens once the scene map is ready (seconds), and fills in by itself as
+the words, the screen text and the summary arrive. It is the same background build the plugin
+uses, so a video opened in one is ready in the other. It listens only on your computer; YouTube
+downloads stay on your side.
 
 Each run writes `~/.boson-video/<video id>/index.html` (one self-contained file) and
 `timeline.json` (frames, scenes, chapters, heatmap, transcript and timings, for the
@@ -59,10 +68,10 @@ AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search ad
 | Tool | What your AI gets |
 | --- | --- |
 | `video_open(video)` | A briefing within seconds: length, language, chapters, what the picture does, the summary and key terms if built, how to go on. A new video builds in the background (the map in about 2 s, the words in 10–50 s) |
-| `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, with what was on screen as `ON SCREEN` lines, up to about 12k tokens a reply |
-| `video_frames(video, at \| start–end)` | 6 frames by default, up to 12, full resolution, at the new visuals the scene map found (or exact moments), each with what was said then |
-| `video_search(query, video?)` | Where something is said, in one video or all of them |
-| `video_check(video, claim, at)` | The claim against what was said at those moments, and which checker judged it |
+| `video_read(video, start, end, lang)` | Timed lines, `[m:ss] original // English`, and each picture change as a moment (`state`, `delta`, `trajectory`, or `seek`) with the lines new on screen; `video_frames` shows its frame. Up to about 12k tokens a reply |
+| `video_frames(video, at \| start–end)` | 6 frames by default, up to 12, full resolution, at the new visuals the scene map found (or exact moments), each citing the moment and what was said then |
+| `video_search(query, video?)` | Where something is said or shown, in one video or all of them. A hit on the picture cites the same moment as `video_read` |
+| `video_check(video, claim, at)` | The claim against what was said and shown at those moments, and which checker judged it |
 | `video_list()` | The videos opened so far |
 
 Claude Code:
