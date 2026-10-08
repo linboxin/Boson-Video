@@ -12,7 +12,7 @@ browser.
 - `uv run boson-video serve [--open [<video>]]`: the website on 127.0.0.1:8765: paste a link, read it with the video playing beside it and a working ask box
 - `uv run boson-video web [--hosted] [--host 0.0.0.0] [--port 8770]`: the product page, invite-only, new design (the first run prints your code); `--hosted` refuses YouTube links
 - `uv run boson-video invite [label] [--per-day 10] [--asks 100] | --list | --revoke CODE`: invite codes for it
-- `uv run boson-video mcp`: the plugin (MCP over stdio) for Claude Code, Claude Desktop, Cursor, Codex; setup in the README
+- `uv run boson-video mcp`: the plugin (MCP over stdio) for Claude Code, Claude Desktop, Cursor, Codex; setup in `docs/plugin.md`
 - `uv run python scripts/mcp_smoke.py <video> [--no-keys]`: run the plugin like an AI app and call every tool
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
 - `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
@@ -53,7 +53,7 @@ browser.
 - Follow `docs/DIRECTION.md`: build the next milestone, respect "Not now", and update the
   milestone table when work lands. Don't change the direction without the owner.
 - Speed is the product. Time every stage (`Stopwatch` in `pipeline.py`) and update the
-  README's measured table when numbers move. Say which numbers are measured and which
+  measured tables in `docs/measured.md` when numbers move. Say which numbers are measured and which
   are estimates.
 - Scene thresholds were calibrated on three reference videos. After any change to
   `scenes.py`, recheck all three: 9JKT5rBbrwM (talking head, expect 3 scenes),
