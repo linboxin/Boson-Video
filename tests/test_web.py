@@ -60,6 +60,17 @@ def test_posts_only_from_the_page_itself(home):
     assert c.post("/api/join", json={"code": code}, headers={**POST, "Origin": "http://testserver"}).status_code == 200
 
 
+def test_posts_through_the_public_address_in_front(home, monkeypatch):
+    """A free *.vercel.app name forwards to the server: its Origin is accepted once named."""
+    c = _client(home)
+    code = web.make_invite(home)
+    vercel = {**POST, "Origin": "https://boson.vercel.app"}
+    assert c.post("/api/join", json={"code": code}, headers=vercel).status_code == 403
+    monkeypatch.setenv("BOSON_PUBLIC_URL", "https://boson.vercel.app")
+    assert c.post("/api/join", json={"code": code}, headers=vercel).status_code == 200
+    assert c.post("/api/join", json={"code": code}, headers={**POST, "Origin": "https://evil.vercel.app"}).status_code == 403
+
+
 def test_a_code_sees_only_the_videos_it_opened(home, started):
     a, b = _client(home), _client(home)
     _join(a, home)

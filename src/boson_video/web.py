@@ -271,9 +271,11 @@ def _error(status: int, message: str) -> JSONResponse:
 
 def _post_guard(request: Request) -> JSONResponse | None:
     """Only our own page posts here: a custom header can't be sent cross-site without a preflight we
-    never answer, and the Origin, when sent, must be this site."""
+    never answer, and the Origin, when sent, must be this site, or the public address in front of
+    it (BOSON_PUBLIC_URL: a free *.vercel.app name forwarding to this server)."""
     origin = request.headers.get("origin")
-    if request.headers.get("x-bv") != "1" or (origin and urlparse(origin).netloc != request.headers.get("host")):
+    ours = {request.headers.get("host"), urlparse(os.environ.get("BOSON_PUBLIC_URL", "")).netloc} - {None, ""}
+    if request.headers.get("x-bv") != "1" or (origin and urlparse(origin).netloc not in ours):
         return _error(403, "requests are accepted only from the page itself")
     return None
 
