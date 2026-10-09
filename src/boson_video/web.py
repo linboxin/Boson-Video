@@ -31,7 +31,7 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
-from . import frames, jobs, library, study, writer
+from . import frames, jobs, library, llm, study, writer
 from .scenes import profile
 from .timeline import Timeline
 from .youtube import YouTubeError, parse_video_id
@@ -401,8 +401,25 @@ async def video(request: Request) -> Response:
     hit = await run_in_threadpool(_load, root, key)
     if hit is None:
         return JSONResponse({"key": key, "status": status})
+    if _fill_in(request, root, key, hit[1], status):
+        status = jobs.status(key, root)
     asked = [x for x in notes(root / key) if x.get("by") == cid]
     return JSONResponse({**document(hit[1], key, hit[2]), "status": status, "notes": asked[::-1]})
+
+
+def _fill_in(request: Request, root: Path, key: str, tl: Timeline, status: dict) -> bool:
+    """A video built without a writer (an older copy, the plugin, a missing key) gets its summary,
+    English and terms when opened on a server that has one; only the missing parts are built.
+    On a server, a YouTube video whose screen wasn't read stays as it is: reading it would fetch
+    frames from YouTube."""
+    if not (tl.transcript and tl.summary is None and llm.configured()):
+        return False
+    if status.get("stage") not in ("done", "missing") or jobs.running(key):
+        return False
+    if request.app.state.hosted and tl.video.id and "screens" not in tl.timings:
+        return False
+    jobs.start(f"https://www.youtube.com/watch?v={tl.video.id}" if tl.video.id else tl.video.url, root)
+    return True
 
 
 async def ask(request: Request) -> Response:

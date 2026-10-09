@@ -165,3 +165,27 @@ def test_the_first_run_on_a_new_computer_makes_its_home(tmp_path):
     root = tmp_path / "never-created"
     code = web.make_invite(root, "owner")
     assert web.normal(code) in web.invites(root)
+
+
+def test_opening_a_video_without_a_summary_fills_it_in(home, started, monkeypatch):
+    """Built without a writer (an older copy, the plugin), it gets its summary when opened here."""
+    tl = _tl()
+    tl.video.id, tl.summary = "zyxwvutsrqp", None
+    library.save(tl, home / "zyxwvutsrqp")
+    monkeypatch.delenv("BOSON_WRITER_BASE_URL", raising=False)
+    monkeypatch.delenv("INCEPTION_API_KEY", raising=False)
+    c = _client(home)
+    _join(c, home)
+    c.post("/api/open", json={"link": "zyxwvutsrqp"}, headers=POST)
+    started.clear()
+    c.get("/api/video/zyxwvutsrqp")
+    assert started == []  # no writer: nothing to fill in with
+    monkeypatch.setenv("INCEPTION_API_KEY", "test")
+    c.get("/api/video/zyxwvutsrqp")
+    assert started == [("https://www.youtube.com/watch?v=zyxwvutsrqp", None)]
+    started.clear()
+    hosted = _client(home, hosted=True)
+    _join(hosted, home)
+    hosted.post("/api/open", json={"link": "zyxwvutsrqp"}, headers=POST)
+    hosted.get("/api/video/zyxwvutsrqp")
+    assert started == []  # on a server: the screen wasn't read, and reading it would fetch from YouTube

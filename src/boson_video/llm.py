@@ -52,6 +52,11 @@ def endpoint() -> Endpoint:
     return Endpoint(url, model, os.environ.get("BOSON_WRITER_API_KEY"), prices, False)
 
 
+def configured() -> bool:
+    """A writer is set up: Mercury's key, or another endpoint."""
+    return bool(os.environ.get("BOSON_WRITER_BASE_URL", "").strip() or os.environ.get("INCEPTION_API_KEY"))
+
+
 def model_name() -> str:
     try:
         return endpoint().model

@@ -16,7 +16,7 @@ import time
 import traceback
 from pathlib import Path
 
-from . import library
+from . import library, llm
 
 _running: dict[str, threading.Thread] = {}
 _lock = threading.Lock()
@@ -91,7 +91,7 @@ def _complete(name: str, root: Path | None) -> bool:
     except (OSError, json.JSONDecodeError):
         return False
     return (bool(data.get("transcript")) and ("screens" in data.get("timings_ms", {}) or not screens.available())
-            and (bool(data.get("summary")) or not os.environ.get("INCEPTION_API_KEY")))
+            and (bool(data.get("summary")) or not llm.configured()))
 
 
 def screens_estimate(moments: int) -> float:
@@ -142,7 +142,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             tl.timings.update(laps)
             tl.timings["screens"] = round((time.perf_counter() - t0) * 1000, 1)
             library.save(tl, where)
-        if tl.transcript and tl.summary is None and os.environ.get("INCEPTION_API_KEY"):
+        if tl.transcript and tl.summary is None and llm.configured():
             stage = "summary"
             _write_status(where, stage=stage, started=started)
             try:
@@ -152,7 +152,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
                 _write_status(where, stage="done", started=started, note=f"no summary: {e}")
                 return
         why = {}
-        if tl.transcript and tl.summary is None and not os.environ.get("INCEPTION_API_KEY"):
+        if tl.transcript and tl.summary is None and not llm.configured():
             why["note"] = ("No summary, English or terms: this server has no INCEPTION_API_KEY (Mercury writes them). "
                            "Put it in .env, or in ~/.boson-video/.env, restart, and open the video again.")
         _write_status(where, stage="done", started=started, seconds=round(time.time() - started, 1), **why)
