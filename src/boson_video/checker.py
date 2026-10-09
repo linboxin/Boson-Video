@@ -194,7 +194,7 @@ def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 
     started = time.perf_counter()
     if jev_available(client):
         asyncio.run(_check_all(tl, sentences, concurrency, client))
-        checked_by = "jev+code"
+        checked_by = f"{getattr(client, 'label', 'jev')}+code"  # Jev, or OpenAI's judge (decisions.py)
     else:
         texts = [seg.text for seg in tl.transcript]
         for s in sentences:
@@ -246,6 +246,9 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
         async with gate:
             res = await client.system_one(state, {"relation": RELATION, "relation_r": RELATION_REVERSED})
         probs = both_orders(res, "relation")
+        if not probs:  # OpenAI's judge may refuse a question; Jev always answers
+            sentence.check_note = "the judge gave no answer"
+            return
         choice = max(probs, key=probs.get)
         sentence.check = VERDICTS[choice]
         sentence.check_p = round(probs[choice], 3)
@@ -256,7 +259,8 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
     try:
         await asyncio.gather(*(one(s) for s in sentences))
     except Exception as e:  # the SDK's errors carry the status and a hint
-        raise CheckError(f"Jev could not check the summary: {str(e)[:200]}") from None
+        judge = "OpenAI's judge" if getattr(client, "label", "jev") == "openai" else "Jev"
+        raise CheckError(f"{judge} could not check the summary: {str(e)[:200]}") from None
 
 
 def _clock(t: float) -> str:

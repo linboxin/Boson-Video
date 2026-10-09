@@ -1,6 +1,6 @@
 """The planted-error test: does the checker accept true claims and catch false ones?
 
-    uv run python scripts/planted_errors.py            # run it (needs TYPESAFE_API_KEY for the Jev rows)
+    uv run python scripts/planted_errors.py            # run it (TYPESAFE_API_KEY for the Jev rows, OPENAI_API_KEY for OpenAI's)
     uv run python scripts/planted_errors.py --build    # rebuild the fixture from the videos in the library
 
 Each case is a claim about a real passage from two Chinese videos (SenseVoice transcripts),
@@ -8,9 +8,10 @@ with the passage before and after it, the way the checker sees a cited passage. 
 should pass; planted errors (a changed number, a flipped direction, a negation, a wrong entity
 or date) should not. Most claims are in English, because that is how a plugin user's AI writes.
 
-Three ways of checking:
+Ways of checking:
 - jev, both orders: Jev asked twice in one request with the options reversed (what ships)
 - jev, one order: the question once, "supports" listed first (before 2026-10-04)
+- openai, both orders / one order: the same questions to OpenAI's Decisions API (decisions.py)
 - code only: numbers compared by value, nothing judges meaning (what a user without a key gets)
 """
 
@@ -25,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from boson_video import checker, library  # noqa: E402
+from boson_video import checker, decisions, library  # noqa: E402
 from boson_video.env import load_env  # noqa: E402
 from boson_video.timeline import Segment, Sentence, Timeline, Video  # noqa: E402
 
@@ -124,6 +125,8 @@ def main() -> int:
         from typesafe_sdk import AsyncTypeSafeClient
 
         modes = [("jev, both orders", "both"), ("jev, one order", "one")] + modes
+    if decisions.available():
+        modes = [("openai, both orders", "openai"), ("openai, one order", "openai one")] + modes
     print(f"{len(cases)} cases: {sum(c['true'] for c in cases)} true, {sum(not c['true'] for c in cases)} planted\n")
     print(f"{'checker':18} {'true accepted':>14} {'planted caught':>15}")
     for name, kind in modes:
@@ -132,6 +135,10 @@ def main() -> int:
             client = AsyncTypeSafeClient
         elif kind == "one":
             client = lambda: OneOrder(AsyncTypeSafeClient())  # noqa: E731
+        elif kind == "openai":
+            client = decisions.AsyncDecisionsClient
+        elif kind == "openai one":
+            client = lambda: OneOrder(decisions.AsyncDecisionsClient())  # noqa: E731
         if kind is None:
             import os
 

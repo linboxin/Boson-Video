@@ -17,6 +17,7 @@ browser.
 - `uv run python scripts/mcp_smoke.py <video> [--no-keys]`: run the plugin like an AI app and call every tool
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
 - `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
+- `uv run python scripts/planted_errors.py` and `scripts/planted_frames.py`: the planted-error tests, against what was said and against what was shown (each judge with a key gets a row)
 
 ## Map
 
@@ -41,6 +42,7 @@ browser.
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: the summary harness: one call for a short video; part by part (chapters or an outline) with a tldr pass for 15 minutes and up; `repair` rewrites what fails the check or narrates. `scripts/summary_bakeoff.py` measures any change, blind
 - `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired
+- `decisions.py`: OpenAI's Decisions API (gpt-6-luna), a judge that can look at frames; answers in Jev's shape, so the checker can ask either (`OPENAI_API_KEY`, trial on branch feat/decisions-judge)
 - `ask.py`: Jev finds the passage that answers a question (one pass, or two for more than 255 passages)
 - `env.py`: loads keys from `.env`
 - `scenes.py`: cuts, looks, base/repeat/new, `profile()` headline
