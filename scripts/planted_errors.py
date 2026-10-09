@@ -1,6 +1,7 @@
 """The planted-error test: does the checker accept true claims and catch false ones?
 
-    uv run python scripts/planted_errors.py            # run it (TYPESAFE_API_KEY for the Jev rows, OPENAI_API_KEY for OpenAI's)
+    uv run python scripts/planted_errors.py            # run it (TYPESAFE_API_KEY for the Jev rows)
+    uv run python scripts/planted_errors.py --openai   # with OpenAI's rows too (OPENAI_API_KEY; spends credit)
     uv run python scripts/planted_errors.py --build    # rebuild the fixture from the videos in the library
 
 Each case is a claim about a real passage from two Chinese videos (SenseVoice transcripts),
@@ -113,6 +114,7 @@ def score(cases: list[dict], verdicts: list[str]) -> tuple[int, int, int, int, l
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true")
+    ap.add_argument("--openai", action="store_true", help="add OpenAI's rows (spends OpenAI credit)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     load_env()
@@ -125,7 +127,7 @@ def main() -> int:
         from typesafe_sdk import AsyncTypeSafeClient
 
         modes = [("jev, both orders", "both"), ("jev, one order", "one")] + modes
-    if decisions.available():
+    if args.openai and decisions.available():
         modes = [("openai, both orders", "openai"), ("openai, one order", "openai one")] + modes
     print(f"{len(cases)} cases: {sum(c['true'] for c in cases)} true, {sum(not c['true'] for c in cases)} planted\n")
     print(f"{'checker':18} {'true accepted':>14} {'planted caught':>15}")

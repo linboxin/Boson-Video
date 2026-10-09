@@ -13,6 +13,7 @@ from boson_video.timeline import Segment, Sentence, Timeline, Video
 @pytest.fixture(autouse=True)
 def key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("BOSON_SCREEN_CHECK", "1")
 
 
 def _transport(answers, seen=None, statuses=()):
@@ -164,6 +165,17 @@ def test_numbers_must_be_said_or_shown_whatever_the_judge_says(tmp_path, monkeyp
                             where=tmp_path)
     assert wrong.check == "contradicted"  # the judge said yes, but the 2 of /v2 is neither said nor shown (/v1 is)
     assert unshown.check == "unsupported"  # 211 is neither said nor on screen, whatever the judge says
+
+
+def test_a_key_alone_spends_nothing_the_switch_is_off_by_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("BOSON_SCREEN_CHECK")
+    tl = _video(tmp_path)
+    s = Sentence("The model is gpt-6-luna.", "", [1])
+    seen = []
+    monkeypatch.setattr(decisions, "AsyncDecisionsClient", lambda: REAL(transport=_judge_frames({"supports": 1.0}, seen)))
+    stats = checker.check_sentences(tl, [s], client=FakeJev({s.text: "says_nothing"}), where=tmp_path)
+    assert not decisions.screen_check_on() and seen == []
+    assert s.check == "unsupported" and stats["checked_by"] == "jev+code"
 
 
 def test_no_folder_or_no_key_means_no_second_look(tmp_path, monkeypatch):

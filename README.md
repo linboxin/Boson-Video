@@ -53,6 +53,8 @@ and `TYPESAFE_API_KEY` (Jev checks every sentence and answers questions). Put th
 the folder you start from, or in `~/.boson-video/.env`; the server warns at start when one is missing.
 Without them you still get the scenes, the transcript and search. Any OpenAI-compatible model can
 write instead of Mercury: set `BOSON_WRITER_BASE_URL`, `BOSON_WRITER_MODEL` and `BOSON_WRITER_API_KEY`.
+Optional and off by default: with `OPENAI_API_KEY` and `BOSON_SCREEN_CHECK=1`, a sentence the words can't
+confirm gets a second look at the frames on screen (OpenAI's Decisions API, about a cent a video).
 
 ## Tested videos
 

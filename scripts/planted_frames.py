@@ -1,6 +1,7 @@
 """The planted-error test for what was shown: claims about slides, checked against the slide.
 
     uv run python scripts/planted_frames.py            # run it (needs the frames in the library)
+    uv run python scripts/planted_frames.py --openai   # with OpenAI's rows and the screen step (spends credit)
     uv run python scripts/planted_frames.py --build    # rebuild the fixture's screen text from the library
 
 Each case is a claim about one full-resolution frame of f4zGqjYWS_Q (charts, prices, timelines and
@@ -27,6 +28,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -185,6 +187,7 @@ def score(cases: list[dict], verdicts: list[str]) -> tuple[int, int, int, int, l
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--build", action="store_true")
+    ap.add_argument("--openai", action="store_true", help="add OpenAI's rows (spends OpenAI credit)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     load_env()
@@ -197,7 +200,7 @@ def main() -> int:
         print(f"frames not in the library: {', '.join(sorted(missing))} (build {VIDEO} first)")
         return 1
     modes = []
-    if decisions.available():
+    if args.openai and decisions.available():
         modes.append(("openai, frame + text", decisions.AsyncDecisionsClient, "frame+screen"))
     if checker.jev_available():
         from typesafe_sdk import AsyncTypeSafeClient
@@ -217,7 +220,11 @@ def main() -> int:
         for m in misses:
             print(m)
     if checker.jev_available():
+        if args.openai:
+            os.environ["BOSON_SCREEN_CHECK"] = "1"  # this run asked for OpenAI
         for name, second in (("jev, words", False), ("jev, words then frames", True)):
+            if second and not decisions.screen_check_on():
+                continue
             verdicts, stats = as_cited(cases, second)
             a, t, c, f, misses = score(cases, verdicts)
             fr = stats.get("frames", {})

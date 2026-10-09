@@ -32,6 +32,12 @@ def available() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY"))
 
 
+def screen_check_on() -> bool:
+    """The checker's second look at the screen spends OpenAI credit, so it is off unless
+    BOSON_SCREEN_CHECK=1 is set as well as the key (the owner, 2026-10-09: in, but off for now)."""
+    return available() and os.environ.get("BOSON_SCREEN_CHECK", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def image_part(path: str | Path) -> dict:
     """A frame as the API takes it: inline base64 (hosted URLs and file ids are refused)."""
     data = base64.b64encode(Path(path).read_bytes()).decode("ascii")

@@ -17,7 +17,7 @@ browser.
 - `uv run python scripts/mcp_smoke.py <video> [--no-keys]`: run the plugin like an AI app and call every tool
 - `uv run pytest` (offline) · `uv run pytest -m live` (hits YouTube, runs Apple's transcriber)
 - `uv run python scripts/accuracy.py <video id> <caption language> <locale>`: score our transcript against human captions
-- `uv run python scripts/planted_errors.py` and `scripts/planted_frames.py`: the planted-error tests, against what was said and against what was shown (each judge with a key gets a row)
+- `uv run python scripts/planted_errors.py` and `scripts/planted_frames.py`: the planted-error tests, against what was said and against what was shown (each judge with a key gets a row; `--openai` adds OpenAI's, which spends credit)
 
 ## Map
 
@@ -41,7 +41,7 @@ browser.
 - `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: the summary harness: one call for a short video; part by part (chapters or an outline) with a tldr pass for 15 minutes and up; `repair` rewrites what fails the check or narrates. `scripts/summary_bakeoff.py` measures any change, blind
-- `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired; a sentence the words don't confirm gets a second look at the frames on screen then (OpenAI, only to confirm, at 0.9 or more)
+- `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired; a sentence the words don't confirm gets a second look at the frames on screen then (OpenAI, only to confirm, at 0.9 or more; off unless `BOSON_SCREEN_CHECK=1`)
 - `decisions.py`: OpenAI's Decisions API (gpt-6-luna), a judge that can look at frames; answers in Jev's shape, so the checker can ask either (`OPENAI_API_KEY`)
 - `ask.py`: Jev finds the passage that answers a question (one pass, or two for more than 255 passages)
 - `env.py`: loads keys from `.env`

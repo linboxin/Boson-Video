@@ -10,7 +10,8 @@ second, and Jev then judges the sentence against the corrected passages.
 
 A sentence the words don't confirm gets a second look with what was on screen while it was said
 (OpenAI's Decisions API, which can see frames; Jev can't): speech recognition garbles names and
-numbers that a slide or code on screen shows plainly. The frame can only confirm.
+numbers that a slide or code on screen shows plainly. The frame can only confirm. It costs OpenAI
+credit, so it runs only with BOSON_SCREEN_CHECK=1 and OPENAI_API_KEY set.
 """
 
 from __future__ import annotations
@@ -199,7 +200,8 @@ def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 
     code checks the numbers only ("code"); a sentence whose numbers are all there is left
     unchecked rather than marked as supported, because nothing judged its meaning.
 
-    Then the screen, when there is an OpenAI key and the video's folder (`where`): a sentence the
+    Then the screen, when it is switched on (BOSON_SCREEN_CHECK=1 and an OpenAI key) and the
+    video's folder is given (`where`): a sentence the
     words didn't confirm is asked again with the frames on screen while it was said ("+frames").
     The frame can confirm a sentence, never overrule one the words confirmed (see `look`).
     """
@@ -358,7 +360,7 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
     from . import decisions
 
     doubtful = [s for s in sentences if s.evidence and s.check in ("unsupported", "contradicted")]
-    if where is None or not tl.screens or not doubtful or not decisions.available():
+    if where is None or not tl.screens or not doubtful or not decisions.screen_check_on():
         return {}
     eyes = client if getattr(client, "label", "") == "openai" else decisions.AsyncDecisionsClient()
     try:
