@@ -9,14 +9,17 @@ frame by eye (2026-10-09), not taken from OCR. Planted errors change a number, a
 entity, a date or a detail; "not shown" claims are true in the world but absent from the slide,
 so a checker that accepts them is bringing in what it knows rather than what was shown.
 
-Ways of checking:
-- openai, frame: OpenAI's Decisions API looks at the frame, both option orders (decisions.py)
-- openai, frame, one order: the same, "supports" listed first
-- openai, screen text: the same model given only the OCR text of the frame
-- jev, screen text: Jev given the OCR text (the best Jev can do today: it can't see)
-- code only, screen text: the claim's numbers looked up in the OCR text
+Ways of checking (every judge asked twice, the options reversed, as the checker asks):
+- openai, frame + text: OpenAI's Decisions API sees the frame and its OCR text (decisions.py)
+- jev, screen text: Jev given the OCR text (the best Jev can do: it can't see)
 - jev, words / jev, words then frames: the claim cited to what was said while the slide was up and
   checked as the product checks a summary sentence, without and with the second look at the screen
+- code only, screen text: the claim's numbers looked up in the OCR text (no key needed)
+
+Measured 2026-10-09: openai, frame + text 25 of 26 true accepted and 22 of 24 planted caught; jev,
+screen text 23 and 21; jev, words 10 and 22; jev, words then frames 19 and 22. Tried and dropped:
+the frame alone (21 and 21), OpenAI on the OCR text alone (20 and 18), one option order, and the
+state written as lines instead of JSON (no better, and answers moved with the wording).
 """
 
 from __future__ import annotations
@@ -107,10 +110,9 @@ def relation(what: str, field: str = "") -> dict:
             "criteria": {k: v.format(what=what) for k, v in CRITERIA.items()}}
 
 
-FRAME = relation("picture")  # the frame goes as an image, not in the text
 SCREEN = relation("text read off the screen by OCR, which can be garbled", "screen_text")
 BOTH = relation("picture, with the text read off it by OCR, which can be garbled", "screen_text")
-QUESTIONS = {"frame": FRAME, "screen": SCREEN, "frame+screen": BOTH}
+QUESTIONS = {"screen": SCREEN, "frame+screen": BOTH}
 
 
 def build() -> None:
@@ -123,13 +125,13 @@ def build() -> None:
     print(f"wrote {len(cases)} cases to {FIXTURE}")
 
 
-async def judge_all(cases: list[dict], make_client, given: str, both: bool) -> tuple[list[str], dict]:
-    """`given`: what the judge sees besides the claim: "frame", "screen" (OCR text) or "frame+screen"."""
+async def judge_all(cases: list[dict], make_client, given: str) -> tuple[list[str], dict]:
+    """`given`: what the judge sees besides the claim: "screen" (OCR text) or "frame+screen"."""
     client = make_client()
     gate = asyncio.Semaphore(8)
     spec = QUESTIONS[given]
     reversed_spec = {**spec, "criteria": dict(reversed(list(spec["criteria"].items())))}
-    questions = {"relation": spec, **({"relation_r": reversed_spec} if both else {})}
+    questions = {"relation": spec, "relation_r": reversed_spec}
     started = time.perf_counter()
 
     async def one(c: dict) -> str:
@@ -196,22 +198,16 @@ def main() -> int:
         return 1
     modes = []
     if decisions.available():
-        lines = lambda: decisions.AsyncDecisionsClient(render="lines")  # noqa: E731
-        modes += [("openai, frame", decisions.AsyncDecisionsClient, "frame", True),
-                  ("openai, frame, one order", decisions.AsyncDecisionsClient, "frame", False),
-                  ("openai, frame, as lines", lines, "frame", True),
-                  ("openai, frame + text", decisions.AsyncDecisionsClient, "frame+screen", True),
-                  ("openai, frame + text, lines", lines, "frame+screen", True),
-                  ("openai, screen text", decisions.AsyncDecisionsClient, "screen", True)]
+        modes.append(("openai, frame + text", decisions.AsyncDecisionsClient, "frame+screen"))
     if checker.jev_available():
         from typesafe_sdk import AsyncTypeSafeClient
 
-        modes.append(("jev, screen text", AsyncTypeSafeClient, "screen", True))
+        modes.append(("jev, screen text", AsyncTypeSafeClient, "screen"))
     print(f"{len(cases)} cases on {len({c['frame'] for c in cases})} frames: "
           f"{sum(c['true'] for c in cases)} true, {sum(not c['true'] for c in cases)} planted\n")
     print(f"{'checker':26} {'true accepted':>14} {'planted caught':>15}   cost")
-    for name, make_client, given, both in modes:
-        verdicts, usage = asyncio.run(judge_all(cases, make_client, given, both))
+    for name, make_client, given in modes:
+        verdicts, usage = asyncio.run(judge_all(cases, make_client, given))
         a, t, c, f, misses = score(cases, verdicts)
         cost = ""
         if usage.get("calls"):

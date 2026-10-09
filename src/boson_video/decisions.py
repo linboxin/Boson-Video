@@ -52,8 +52,7 @@ class AsyncDecisionsClient:
 
     label = "openai"
 
-    def __init__(self, transport: httpx.AsyncBaseTransport | None = None, render: str = "json"):
-        self.render = render  # how the state is written for the model: "json", or "lines" (key: value)
+    def __init__(self, transport: httpx.AsyncBaseTransport | None = None):
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
             raise DecisionsError("no OPENAI_API_KEY in .env (OpenAI's Decisions API judges frames)")
@@ -101,23 +100,13 @@ class AsyncDecisionsClient:
         """Jev's call shape: the state as JSON text (plus its `frames` as images), each Choice's
         probabilities by label in `.choices[name].probabilities`."""
         frames = [image_part(p) for p in state.get("frames", [])]
-        text = render({k: v for k, v in state.items() if k != "frames"}, self.render)
+        text = json.dumps({k: v for k, v in state.items() if k != "frames"}, ensure_ascii=False)
         content = [{"type": "input_text", "text": text}, *frames] if frames else text
         answers = await self.ask(content, [question(name, spec) for name, spec in questions.items()])
         return SimpleNamespace(choices={
             name: SimpleNamespace(probabilities={p["value"]: p["probability"] for p in a.get("probabilities", [])})
             for name, a in answers.items() if a.get("type") == "choice"
         })
-
-
-def render(state: dict, how: str = "json") -> str:
-    """The state as text: JSON (what Jev takes), or one `key: value` per field with lists as lines."""
-    if how == "json":
-        return json.dumps(state, ensure_ascii=False)
-    out = []
-    for k, v in state.items():
-        out.append(f"{k}:\n" + "\n".join(f"- {x}" for x in v) if isinstance(v, list) else f"{k}: {v}")
-    return "\n".join(out)
 
 
 def cost_usd(input_tokens: int) -> float:

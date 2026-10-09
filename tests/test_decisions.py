@@ -90,10 +90,6 @@ def test_no_key_says_which_key(monkeypatch):
         decisions.AsyncDecisionsClient()
 
 
-def test_state_as_lines():
-    assert decisions.render({"claim": "c", "screen_text": ["a", "b"]}, "lines") == "claim: c\nscreen_text:\n- a\n- b"
-
-
 # ---- the second look: frames for a sentence the words didn't confirm ------------------------------
 
 from types import SimpleNamespace  # noqa: E402
