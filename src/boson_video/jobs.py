@@ -151,7 +151,11 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             except Exception as e:  # the summary is an extra; the words are what the plugin needs
                 _write_status(where, stage="done", started=started, note=f"no summary: {e}")
                 return
-        _write_status(where, stage="done", started=started, seconds=round(time.time() - started, 1))
+        why = {}
+        if tl.transcript and tl.summary is None and not os.environ.get("INCEPTION_API_KEY"):
+            why["note"] = ("No summary, English or terms: this server has no INCEPTION_API_KEY (Mercury writes them). "
+                           "Put it in .env, or in ~/.boson-video/.env, restart, and open the video again.")
+        _write_status(where, stage="done", started=started, seconds=round(time.time() - started, 1), **why)
     except Exception as e:
         _write_status(where, stage="error", started=started, failed_at=stage, error=str(e).strip().splitlines()[0][:300],
                       trace=traceback.format_exc()[-1500:])

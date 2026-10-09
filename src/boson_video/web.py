@@ -499,6 +499,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="running on a server: refuse YouTube links (they come through the browser extension)")
     args = ap.parse_args(argv or [])
     load_env()
+    from .env import missing
+
+    for line in missing():
+        print(f"warning: {line}. Put the key in .env here or in ~/.boson-video/.env", flush=True)
     root = library.home()
     if not invites(root):
         print(f"first invite code (yours): {make_invite(root, 'owner', per_day=50, asks_per_day=500)}")

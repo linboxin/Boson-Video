@@ -87,3 +87,52 @@ def test_a_mac_without_apple_s_transcriber_uses_the_local_models(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.delenv("BOSON_ASR")
     assert pipeline.apple_transcriber("zh_CN") is False
+
+
+def test_keys_are_found_where_an_installed_copy_looks(tmp_path, monkeypatch):
+    """uvx runs the installed package, which has no repo .env: the folder you start in and
+    ~/.boson-video/.env are read too, but only for this tool's keys."""
+    from boson_video import env
+
+    home, here = tmp_path / "home", tmp_path / "here"
+    home.mkdir(), here.mkdir()
+    (home / ".env").write_text("INCEPTION_API_KEY=from-home\nSOMEONE_ELSES=1\n")
+    (here / ".env").write_text('TYPESAFE_API_KEY="from-here"\nINCEPTION_API_KEY=from-here\nAWS_SECRET=2\n')
+    monkeypatch.setattr(env, "PROJECT_ENV", tmp_path / "no-repo" / ".env")
+    monkeypatch.setenv("BOSON_VIDEO_HOME", str(home))
+    monkeypatch.chdir(here)
+    for key in ("INCEPTION_API_KEY", "TYPESAFE_API_KEY", "SOMEONE_ELSES", "AWS_SECRET"):
+        monkeypatch.delenv(key, raising=False)
+    assert len(env.missing()) == 2
+    env.load_env()
+    import os
+
+    assert os.environ["TYPESAFE_API_KEY"] == "from-here"
+    assert os.environ["INCEPTION_API_KEY"] == "from-here"  # the folder you start in comes first
+    assert "SOMEONE_ELSES" not in os.environ and "AWS_SECRET" not in os.environ
+    assert env.missing() == []
+
+
+def test_a_build_without_the_writing_key_says_so(tmp_path, monkeypatch):
+    import json
+
+    from boson_video import jobs, library, pipeline, screens
+    from boson_video.timeline import Segment
+
+    from test_plugin import _tl
+
+    def fake_build(ref, level=None):
+        tl = _tl()
+        tl.transcript, tl.translation, tl.terms, tl.summary = [], [], [], None
+        return tl
+
+    def fake_words(tl, where, locale=None, fresh_audio=False, say=None):
+        tl.transcript = [Segment(1, 2, "你好")]
+
+    monkeypatch.setattr(pipeline, "build", fake_build)
+    monkeypatch.setattr(pipeline, "add_words", fake_words)
+    monkeypatch.setattr(screens, "available", lambda: False)
+    monkeypatch.delenv("INCEPTION_API_KEY", raising=False)
+    jobs._build("abcdefghijk", "abcdefghijk", tmp_path, True)
+    status = json.loads((library.folder("abcdefghijk", tmp_path) / "status.json").read_text())
+    assert status["stage"] == "done" and "INCEPTION_API_KEY" in status["note"]
