@@ -132,7 +132,7 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     tl.timings["words total"] = clock.total()
 
 
-def add_summary(tl: Timeline, effort: str = "low") -> dict:
+def add_summary(tl: Timeline, effort: str | None = None) -> dict:
     """Write the summary, the English transcript and the glossary at once (Mercury), then check
     every cited sentence (Jev). The summary is required; the other two are extras, so a failure
     there is reported and the page goes on without it."""

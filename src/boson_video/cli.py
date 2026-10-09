@@ -71,8 +71,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--fresh-audio", action="store_true", help="download the audio again even if it is cached")
     ap.add_argument("--no-summary", action="store_true", help="scenes and words only; skip the summary")
     ap.add_argument("--no-screens", action="store_true", help="don't read the text on screen")
-    ap.add_argument("--effort", default="low", choices=["instant", "low", "medium", "high"],
-                    help="how hard Mercury thinks while writing the summary (default: low)")
+    ap.add_argument("--effort", default=None, choices=["instant", "low", "medium", "high", "xhigh"],
+                    help="how hard the writing model thinks (default: the writer's own, BOSON_WRITER_EFFORT)")
     ap.add_argument("--open", action="store_true", help="open the page in your browser")
     args = ap.parse_args(argv)
 

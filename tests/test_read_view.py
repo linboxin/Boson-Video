@@ -229,3 +229,36 @@ def test_a_number_from_a_name_in_the_title_needs_no_passage(monkeypatch):
     s = Sentence("This CS329A lecture covers 100 things", "", [1])
     checker.check_sentences(tl, [s])
     assert s.check == ""  # 329 is in the title, 100 is in passage 1: nothing missing
+
+
+# --- the writer, rewritten 2026-10-09 ---------------------------------------------------------
+
+def test_the_summary_length_grows_with_the_video():
+    assert [writer.target_sentences(m) for m in (2, 11, 28, 60, 180)] == [10, 14, 27, 48, 48]
+    user = json.loads(writer.request_body(_timeline(3), [], "low")["messages"][1]["content"])
+    assert user["minutes"] == 0 and user["target_sentences"] == 10
+    assert "Never narrate the video" in writer.system(_timeline(3))
+
+
+def test_instructions_can_be_swapped_per_call():
+    body = writer.request_body(_timeline(3), [], "low", instructions="Old rules. {language}. {english_rule}")
+    assert body["messages"][0]["content"].startswith("Old rules. Simplified Chinese.")
+
+
+def test_an_openai_model_writes_through_the_responses_api(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    seen = {}
+    reply = {"tldr": [{"text": "一句", "text_en": "One line", "evidence": [0]}],
+             "sections": [{"title": "要点", "title_en": "The point", "start_id": 0,
+                           "sentences": [{"text": "二", "text_en": "Two", "evidence": [1]}]}]}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"output_text": json.dumps(reply, ensure_ascii=False),
+                                         "usage": {"input_tokens": 1000, "output_tokens": 200}})
+
+    summary, stats = writer.write(_timeline(3), [], model="gpt-6-luna", transport=httpx.MockTransport(handler))
+    assert summary.writer == "gpt-6-luna" and summary.tldr[0].text == "一句"
+    assert seen["text"]["format"]["strict"] is True and seen["reasoning"]["effort"] == "medium"
+    assert json.loads(seen["input"][1]["content"])["target_sentences"] == 10
+    assert stats["cost_usd"] == round((1000 * 0.10 + 200 * 0.50) / 1e6, 5)
