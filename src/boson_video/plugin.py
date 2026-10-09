@@ -149,7 +149,8 @@ def briefing(name: str, root: Path | None = None) -> str:
              f"Status: {_words_status(name, tl, root)}."]
     s = tl.summary
     if s:
-        checked = {"jev+code": "checked by Jev and code", "code": "numbers checked by code only", "jev": "checked by Jev"}
+        checked = {"jev+code": "checked by Jev and code", "code": "numbers checked by code only", "jev": "checked by Jev",
+                   "jev+code+frames": "checked by Jev and code, and lines the words didn't confirm looked up on screen by OpenAI"}
         lines.append(f"Summary: written by {s.writer}, {checked.get(s.checker, 'not checked')}.")
     elif tl.transcript:
         lines.append("Summary: not built (no writing key). Write your own from the transcript.")
@@ -407,7 +408,7 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
     tl = _with_screens(tl, times)  # what was on screen around those moments counts as evidence too
     evidence = sorted({i for t in times for i in _passages_at(tl, t)})
     sentence = Sentence(claim.strip(), "", evidence)
-    stats = checker.check_sentences(tl, [sentence])
+    stats = checker.check_sentences(tl, [sentence], where=library.folder(name, root))
     english = _english(tl)
     around = sorted({j for i in sentence.evidence for j in (i - 1, i, i + 1) if 0 <= j < len(tl.transcript)})
     passages = "\n".join(f"  [{clock(tl.transcript[j].start)}] {tl.transcript[j].text}" + (f" // {english[j]}" if english[j] else "")
@@ -426,9 +427,10 @@ def check(video: str, claim: str, at: list, root: Path | None = None) -> str:
                "unsupported": "Not supported: the passages don't say this.",
                "uncited": "No passages at those times."}[sentence.check]
     note = f" ({sentence.check_note})" if sentence.check_note else ""
+    screen = ", then OpenAI on the frames (the words alone didn't confirm it)" if "frames" in stats else ""
     return (f"{meaning}{note} Confidence {sentence.check_p:.2f}.\n"
-            "Checked by: Jev (meaning) and code (numbers). A pass means it matches what the transcript says, "
-            "which is machine-made, not that it is true.\n"
+            f"Checked by: Jev (meaning) and code (numbers){screen}. A pass means it matches what the transcript "
+            "says (or the screen shows), which is machine-made, not that it is true.\n"
             f"Passages:\n{passages}")
 
 

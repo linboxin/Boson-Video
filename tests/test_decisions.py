@@ -92,3 +92,88 @@ def test_no_key_says_which_key(monkeypatch):
 
 def test_state_as_lines():
     assert decisions.render({"claim": "c", "screen_text": ["a", "b"]}, "lines") == "claim: c\nscreen_text:\n- a\n- b"
+
+
+# ---- the second look: frames for a sentence the words didn't confirm ------------------------------
+
+from types import SimpleNamespace  # noqa: E402
+
+from boson_video.timeline import Scene, Screen  # noqa: E402
+
+
+class FakeJev:
+    """Jev with fixed verdicts by claim: "supports", "contradicts" or "says_nothing"."""
+
+    def __init__(self, verdicts):
+        self.verdicts = verdicts
+
+    async def system_one(self, state, questions):
+        v = self.verdicts[state["claim"]]
+        return SimpleNamespace(choices={k: SimpleNamespace(probabilities={v: 1.0}) for k in questions})
+
+
+def _video(tmp_path):
+    """0-30 s a slide that builds (frames at 2 s and 12 s), 30-60 s the next topic (frame at 31 s)."""
+    tl = Timeline(video=Video("t", "", 60, "u"), frames=[], sheets=[])
+    tl.transcript = [Segment(0, 9, "here is the request"), Segment(10, 25, "the model is tpt six luna"),
+                     Segment(31, 40, "now images")]
+    tl.scenes = [Scene(0, 0, 30, [], 0, 0, "new"), Scene(1, 30, 60, [], 1, 1, "new")]
+    tl.screens = [Screen(2, 0, "POST /v1/decisions", image="frames/2000.jpg"),
+                  Screen(12, 0, 'model: "gpt-6-luna"', image="frames/12000.jpg"),
+                  Screen(31, 1, "input_image", image="frames/31000.jpg")]
+    (tmp_path / "frames").mkdir()
+    for sc in tl.screens:
+        (tmp_path / sc.image).write_bytes(b"\xff\xd8jpeg")
+    return tl
+
+
+def test_on_screen_gives_the_last_build_step_and_stays_in_the_span(tmp_path):
+    tl = _video(tmp_path)
+    found = checker.on_screen(tl, tmp_path, 10, 25)
+    assert [(p.name, lines, t) for p, lines, t in found] == [("12000.jpg", ["POST /v1/decisions", 'model: "gpt-6-luna"'], 12)]
+    tl.scenes.append(Scene(2, 60, 70, [], 2, 0, "repeat"))  # the slide again: its frames are the first appearance's
+    assert [p.name for p, _, _ in checker.on_screen(tl, tmp_path, 61, 65)] == ["12000.jpg"]
+
+
+REAL = decisions.AsyncDecisionsClient
+
+
+def _judge_frames(answer, seen):
+    return _transport(lambda b: [_choice(q["name"], answer) for q in b["questions"]], seen)
+
+
+def test_the_screen_confirms_what_speech_garbled_and_says_so(tmp_path, monkeypatch):
+    tl = _video(tmp_path)
+    garbled = Sentence("The model is gpt-6-luna.", "", [1])
+    said = Sentence("Here is the request.", "", [0])
+    seen = []
+    monkeypatch.setattr(decisions, "AsyncDecisionsClient",
+                        lambda: REAL(transport=_judge_frames({"supports": 0.9, "contradicts": 0.1}, seen)))
+    stats = checker.check_sentences(tl, [garbled, said], client=FakeJev({garbled.text: "says_nothing", said.text: "supports"}),
+                                    where=tmp_path)
+    assert garbled.check == "supported" and garbled.check_note == "seen on screen (0:12; OpenAI looked at the frame)"
+    assert said.check == "supported" and said.check_note == ""
+    assert len(seen) == 1  # only the sentence the words didn't confirm was asked again
+    assert seen[0]["input"][0]["content"][1]["image_url"].startswith("data:image/jpeg")
+    assert stats["checked_by"] == "jev+code+frames" and stats["frames"]["confirmed"] == 1
+
+
+def test_numbers_must_be_said_or_shown_whatever_the_judge_says(tmp_path, monkeypatch):
+    tl = _video(tmp_path)
+    wrong = Sentence("The request goes to /v2/decisions.", "", [1])
+    unshown = Sentence("The model answers in 211 ms.", "", [1])
+    monkeypatch.setattr(decisions, "AsyncDecisionsClient",
+                        lambda: REAL(transport=_judge_frames({"supports": 1.0}, [])))
+    checker.check_sentences(tl, [wrong, unshown], client=FakeJev({wrong.text: "contradicts", unshown.text: "says_nothing"}),
+                            where=tmp_path)
+    assert wrong.check == "contradicted"  # the judge said yes, but the 2 of /v2 is neither said nor shown (/v1 is)
+    assert unshown.check == "unsupported"  # 211 is neither said nor on screen, whatever the judge says
+
+
+def test_no_folder_or_no_key_means_no_second_look(tmp_path, monkeypatch):
+    tl = _video(tmp_path)
+    s = Sentence("The model is gpt-6-luna.", "", [1])
+    assert checker.check_sentences(tl, [s], client=FakeJev({s.text: "says_nothing"}))["checked_by"] == "jev+code"
+    monkeypatch.delenv("OPENAI_API_KEY")
+    assert checker.check_sentences(tl, [s], client=FakeJev({s.text: "says_nothing"}), where=tmp_path)["checked_by"] == "jev+code"
+    assert s.check == "unsupported"

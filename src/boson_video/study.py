@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from . import ask as ask_mod
 from . import checker, llm
@@ -180,7 +181,7 @@ def mentions(transcript: list[Segment], heard: str) -> list[int]:
     return [i for i, s in enumerate(transcript) if needle in re.sub(r"\s+", "", s.text).lower()]
 
 
-def answer(tl: Timeline, question: str, jev=None, transport=None) -> dict:
+def answer(tl: Timeline, question: str, jev=None, transport=None, where: Path | None = None) -> dict:
     """Jev finds the moments, Mercury explains them, Jev checks the explanation."""
     if not tl.transcript:
         raise StudyError("no transcript to ask")
@@ -209,7 +210,7 @@ def answer(tl: Timeline, question: str, jev=None, transport=None) -> dict:
                  for x in out["answer"] if (x.get("text") or "").strip()]
     if sentences:
         try:
-            checker.check_sentences(tl, sentences, client=jev)
+            checker.check_sentences(tl, sentences, client=jev, where=where)
         except checker.CheckError as e:
             raise StudyError(str(e)) from None
     background = [b.strip() for b in out["background"] if b.strip()]

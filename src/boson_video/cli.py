@@ -132,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
               "search; your own AI can read the whole video through the plugin (boson-video mcp).")
         return 0
     try:
-        stats = add_summary(tl, args.effort)
+        stats = add_summary(tl, args.effort, where=folder)
     except (WriterError, CheckError) as e:
         if writer.last_bad_reply:
             (folder / "writer-bad-reply.json").write_text(json.dumps(writer.last_bad_reply, ensure_ascii=False, indent=1))

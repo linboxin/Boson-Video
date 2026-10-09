@@ -132,7 +132,7 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     tl.timings["words total"] = clock.total()
 
 
-def add_summary(tl: Timeline, effort: str | None = None) -> dict:
+def add_summary(tl: Timeline, effort: str | None = None, where: Path | None = None) -> dict:
     """Write the summary, the English transcript and the glossary at once (Mercury), then check
     every cited sentence (Jev). The summary is required; the other two are extras, so a failure
     there is reported and the page goes on without it."""
@@ -155,10 +155,10 @@ def add_summary(tl: Timeline, effort: str | None = None) -> dict:
         except llm.LLMError as e:
             extras["error"] = str(e)
     clock.lap("study")
-    check_stats = checker.check(tl)
+    check_stats = checker.check(tl, where=where)  # `where`: frames for a second look
     clock.lap("check")
     # one more try for what failed the check or narrates the video, then checked again
-    repair_stats = writer.repair(tl, effort, check=checker.check_sentences)
+    repair_stats = writer.repair(tl, effort, check=lambda t, sentences: checker.check_sentences(t, sentences, where=where))
     clock.lap("repair")
     tl.timings.update(clock.laps)
     return {"write": write_stats, "check": check_stats, "repair": repair_stats, **extras}

@@ -425,7 +425,7 @@ async def ask(request: Request) -> Response:
         st["asked"] += 1
         _save_state(root, cid, st)
     try:
-        result = await run_in_threadpool(study.answer, tl, question)
+        result = await run_in_threadpool(study.answer, tl, question, where=root / key)
     except study.StudyError as e:
         return _error(502, f"Couldn't answer: {e}")
     except Exception as e:  # still an answer the page can show

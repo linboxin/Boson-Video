@@ -270,7 +270,7 @@ def test_the_page_answers_a_question_end_to_end(home, monkeypatch):
     library.save(_tl(), library.folder("abcdefghijk"))
     seen = {}
 
-    def fake_answer(tl, question):
+    def fake_answer(tl, question, **_):
         seen["passages"] = len(tl.transcript)
         return {"question": question, "verdict": "answered", "moments": [], "answer": [], "background": [],
                 "seconds": 0.1, "cost_usd": 0, "asked": "now"}

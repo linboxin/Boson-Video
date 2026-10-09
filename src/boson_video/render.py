@@ -710,7 +710,8 @@ def _check_note(sentences: list[Sentence], checker: str = "jev+code") -> str:
         return "Sentences were not checked."
     ok = sum(1 for s in checked if s.check == "supported")
     return (f"{ok} of {len(checked)} sentences checked against the transcript passages they cite (✓). "
-            "? means the cited passages don't say it; ✗ means they say otherwise. Hover a mark for Jev's confidence.")
+            "? means the cited passages don't say it; ✗ means they say otherwise. Hover a mark for Jev's confidence."
+            + (" Lines the words didn't confirm were looked up on screen (OpenAI looked at the frames)." if "frames" in checker else ""))
 
 
 def _transcript(tl: Timeline) -> str:

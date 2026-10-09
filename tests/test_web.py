@@ -137,7 +137,7 @@ def test_upload_keeps_the_file_under_its_hash_and_its_name_as_the_title(home, st
 
 
 def test_ask_answers_with_frames_keeps_the_note_and_counts_the_question(home, monkeypatch):
-    def answer(tl, q):
+    def answer(tl, q, **_):
         return {"question": q, "verdict": "found", "moments": [{"i": 2, "t": 21, "p": 0.9, "text": "", "en": ""}],
                 "answer": [{"text": "KL measures the gap.", "t": 21, "check": "supported", "note": ""}],
                 "background": [], "seconds": 1.2, "cost_usd": 0.0, "asked": "now"}

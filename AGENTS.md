@@ -41,8 +41,8 @@ browser.
 - `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: the summary harness: one call for a short video; part by part (chapters or an outline) with a tldr pass for 15 minutes and up; `repair` rewrites what fails the check or narrates. `scripts/summary_bakeoff.py` measures any change, blind
-- `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired
-- `decisions.py`: OpenAI's Decisions API (gpt-6-luna), a judge that can look at frames; answers in Jev's shape, so the checker can ask either (`OPENAI_API_KEY`, trial on branch feat/decisions-judge)
+- `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired; a sentence the words don't confirm gets a second look at the frames on screen then (OpenAI, only to confirm, at 0.9 or more)
+- `decisions.py`: OpenAI's Decisions API (gpt-6-luna), a judge that can look at frames; answers in Jev's shape, so the checker can ask either (`OPENAI_API_KEY`)
 - `ask.py`: Jev finds the passage that answers a question (one pass, or two for more than 255 passages)
 - `env.py`: loads keys from `.env`
 - `scenes.py`: cuts, looks, base/repeat/new, `profile()` headline

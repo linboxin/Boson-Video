@@ -47,7 +47,9 @@
   };
   const length = t => { t = Math.round(t); return t >= 60 ? `${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")} s` : `${t} s`; };
   const lang = code => LANGS[(code || "").split("_")[0]] || null;
-  const checkedBy = c => ({ "jev+code": "Jev and code", jev: "Jev", code: "code (numbers only)" })[c] || c || "nothing yet";
+  const checkedBy = c => ({ "jev+code": "Jev and code", "jev+code+frames": "Jev and code; OpenAI looked at the frames for lines the words didn't confirm",
+    "openai+code": "OpenAI and code", "openai+code+frames": "OpenAI and code, and the frames for lines the words didn't confirm",
+    jev: "Jev", code: "code (numbers only)" })[c] || c || "nothing yet";
   const two = (orig, en) => !!(en && en.trim() && en.trim() !== (orig || "").trim());
   // The original with its English: CSS shows one, the other, or both (.lang-orig / .lang-both / .lang-en).
   function bi(orig, en, tag = "span", cls = "") {
@@ -409,7 +411,7 @@
         }
         out.push(h("p", { class: "note", style: "margin-top:14px" }, s.checker === "code"
           ? "Numbers checked by code against the passages each sentence cites; the meaning wasn't checked (no key for Jev). ? marks a sentence the passages don't support."
-          : `${ok} of ${checked.length} sentences checked against what was said (✓). ? means the passages it cites don't say it; ✗ means they say otherwise. Hover a mark for why. Checked by ${checkedBy(s.checker)}.`));
+          : `${ok} of ${checked.length} sentences checked against what was said${/frames/.test(s.checker) ? " or shown" : ""} (✓). ? means the passages it cites don't say it; ✗ means they say otherwise. Hover a mark for why. Checked by ${checkedBy(s.checker)}.`));
         out.push(h("p", { class: "about" }, this.about()));
       }
       pane.replaceChildren(...out.filter(Boolean));

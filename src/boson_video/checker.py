@@ -7,6 +7,10 @@ checks run at once. Numbers are checked in code, because Jev is weak at them (it
 their immediate neighbours (speech recognition cuts passages mid-sentence). A neighbour
 that holds the number joins the sentence's citations, so its link points at the right
 second, and Jev then judges the sentence against the corrected passages.
+
+A sentence the words don't confirm gets a second look with what was on screen while it was said
+(OpenAI's Decisions API, which can see frames; Jev can't): speech recognition garbles names and
+numbers that a slide or code on screen shows plainly. The frame can only confirm.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ import asyncio
 import os
 import re
 import time
+from pathlib import Path
 
 from .timeline import Sentence, Timeline
 
@@ -171,11 +176,13 @@ def repair_evidence(sentence: str, evidence: list[int], texts: list[str], strict
     return sorted(set(evidence) | extra), missing
 
 
-def check(tl: Timeline, concurrency: int = 16, client=None) -> dict:
-    """Fill in Sentence.check / check_p for the summary and the glossary; returns counts and timing."""
+def check(tl: Timeline, concurrency: int = 16, client=None, where: Path | None = None) -> dict:
+    """Fill in Sentence.check / check_p for the summary and the glossary; returns counts and timing.
+    `where` is the video's folder, so a sentence the words can't confirm can be looked up on screen."""
     if tl.summary is None:
         raise CheckError("nothing to check")
-    stats = check_sentences(tl, tl.summary.sentences() + [t.said for t in tl.terms if t.said.text], concurrency, client)
+    stats = check_sentences(tl, tl.summary.sentences() + [t.said for t in tl.terms if t.said.text], concurrency,
+                            client, where)
     tl.summary.checker = stats["checked_by"]
     return stats
 
@@ -184,17 +191,25 @@ def jev_available(client=None) -> bool:
     return client is not None or bool(os.environ.get("TYPESAFE_API_KEY"))
 
 
-def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 16, client=None) -> dict:
+def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 16, client=None,
+                    where: Path | None = None) -> dict:
     """Check any sentences that cite `tl.transcript` (summary lines, glossary lines, answers).
 
     With Jev: Jev judges the meaning and code checks the numbers ("jev+code"). Without a key:
     code checks the numbers only ("code"); a sentence whose numbers are all there is left
     unchecked rather than marked as supported, because nothing judged its meaning.
+
+    Then the screen, when there is an OpenAI key and the video's folder (`where`): a sentence the
+    words didn't confirm is asked again with the frames on screen while it was said ("+frames").
+    The frame can confirm a sentence, never overrule one the words confirmed (see `look`).
     """
     started = time.perf_counter()
+    frames: dict = {}
     if jev_available(client):
-        asyncio.run(_check_all(tl, sentences, concurrency, client))
+        frames = asyncio.run(_check_all(tl, sentences, concurrency, client, where))
         checked_by = f"{getattr(client, 'label', 'jev')}+code"  # Jev, or OpenAI's judge (decisions.py)
+        if frames.get("looked"):
+            checked_by += "+frames"
     else:
         texts = [seg.text for seg in tl.transcript]
         for s in sentences:
@@ -209,7 +224,10 @@ def check_sentences(tl: Timeline, sentences: list[Sentence], concurrency: int = 
     counts: dict[str, int] = {}
     for s in sentences:
         counts[s.check] = counts.get(s.check, 0) + 1
-    return {"seconds": round(time.perf_counter() - started, 2), "counts": counts, "checked_by": checked_by}
+    out = {"seconds": round(time.perf_counter() - started, 2), "counts": counts, "checked_by": checked_by}
+    if frames.get("looked"):
+        out["frames"] = frames
+    return out
 
 
 def in_title(written: str, tl: Timeline) -> bool:
@@ -225,7 +243,82 @@ def both_orders(res, name: str) -> dict[str, float]:
     return {label: sum(float(a.get(label, 0.0)) for a in answers) / len(answers) for label in labels}
 
 
-async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, client) -> None:
+# The second look, for a sentence the words didn't confirm: the passages and what was on screen
+# while they were said, together. On 2026-10-09 the frame alone overruled true sentences (a slide
+# caught mid-build, a frame from the next topic), so it is only ever asked to confirm.
+SAID_OR_SHOWN = {
+    "type": "choice",
+    "instructions": "How do the transcript `passages`, together with what was on screen while they were said (the "
+                    "pictures, and `screen_text` read off them by OCR, which can be garbled), relate to the `claim`?",
+    "criteria": {
+        "supports": "What was said and shown, together, states the claim or directly implies it",
+        "contradicts": "What was said or shown states the opposite of the claim or something different",
+        "says_nothing": "Neither what was said nor what was shown addresses the claim",
+    },
+}
+SAID_OR_SHOWN_REVERSED = {**SAID_OR_SHOWN, "criteria": dict(reversed(list(SAID_OR_SHOWN["criteria"].items())))}
+FRAMES_PER_LOOK = 3
+# The screen confirms only when it is sure. On the planted slide claims (scripts/planted_frames.py,
+# 2026-10-09), lifting on any "supports" let 4 of 24 planted errors through (a figure moved to the
+# next company's card, an arrow reversed); at 0.9 none got through and 9 true claims were rescued.
+# The nearest planted error scored 0.89, so this is a thin margin, chosen on one video.
+LOOK_SURE = 0.9
+
+
+def on_screen(tl: Timeline, where: Path, t0: float, t1: float) -> list[tuple[Path, list[str], float]]:
+    """The full-resolution frames on screen while [t0, t1] was said: (frame, all the text on screen by
+    then, its time) for each scene the span overlaps. A slide that builds gives its last step before
+    t1, the most complete; a repeated picture gives its first appearance, whose frames were fetched."""
+    found = []
+    for scene in tl.scenes:
+        if scene.end <= t0 or scene.start >= t1:
+            continue
+        source, until = scene, t1
+        if scene.kind == "repeat":
+            first = next((s for s in tl.scenes if s.look == scene.look and s.kind == "new"), None)
+            source, until = (first, first.end) if first else (scene, t1)
+        shown = sorted((sc for sc in tl.screens if sc.scene == source.index and sc.image and sc.t <= until
+                        and (where / sc.image).exists()), key=lambda sc: sc.t)
+        if shown:
+            lines = [line for sc in shown for line in sc.text.splitlines() if line.strip()]
+            found.append((where / shown[-1].image, lines, shown[-1].t))
+    return found
+
+
+async def look(tl: Timeline, sentence: Sentence, where: Path, client, gate: asyncio.Semaphore) -> bool:
+    """Ask again with the frames on screen; True when they confirm the sentence. Only a sentence the
+    words didn't confirm is asked, and only "supported" changes it: a frame that seems to disagree
+    leaves the words' verdict as it was. Numbers must still be said or read off the screen."""
+    texts = [seg.text for seg in tl.transcript]
+    seen: dict[Path, tuple[list[str], float]] = {}
+    for i in sentence.evidence:
+        for path, lines, t in on_screen(tl, where, tl.transcript[i].start, tl.transcript[i].end):
+            seen.setdefault(path, (lines, t))
+    if not seen:
+        return False
+    picked = sorted(seen.items(), key=lambda x: x[1][1])[:FRAMES_PER_LOOK]
+    around = sorted({j for i in sentence.evidence for j in (i - 1, i, i + 1) if 0 <= j < len(texts)})
+    screen_text = list(dict.fromkeys(line for _, (lines, _) in picked for line in lines))
+    state = {"claim": sentence.text,
+             "passages": [f"[{_clock(tl.transcript[i].start)}] {texts[i]}" for i in around],
+             "screen_text": screen_text,
+             "frames": [str(path) for path, _ in picked]}
+    async with gate:
+        res = await client.system_one(state, {"relation": SAID_OR_SHOWN, "relation_r": SAID_OR_SHOWN_REVERSED})
+    probs = both_orders(res, "relation")
+    if probs.get("supports", 0.0) < LOOK_SURE:
+        return False
+    if [m for m in missing_numbers(sentence.text, [texts[i] for i in around] + screen_text) if not in_title(m, tl)]:
+        return False
+    sentence.check, sentence.check_p = "supported", round(probs["supports"], 3)
+    at = ", ".join(_clock(t) for _, (_, t) in picked)
+    sentence.check_note = f"seen on screen ({at}; OpenAI looked at the frame{'s' if len(picked) > 1 else ''})"
+    return True
+
+
+async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, client,
+                     where: Path | None = None) -> dict:
+    """Jev (or the client given) judges every sentence; then the screen, for the ones it didn't confirm."""
     if client is None:
         from typesafe_sdk import AsyncTypeSafeClient
 
@@ -261,6 +354,23 @@ async def _check_all(tl: Timeline, sentences: list[Sentence], concurrency: int, 
     except Exception as e:  # the SDK's errors carry the status and a hint
         judge = "OpenAI's judge" if getattr(client, "label", "jev") == "openai" else "Jev"
         raise CheckError(f"{judge} could not check the summary: {str(e)[:200]}") from None
+
+    from . import decisions
+
+    doubtful = [s for s in sentences if s.evidence and s.check in ("unsupported", "contradicted")]
+    if where is None or not tl.screens or not doubtful or not decisions.available():
+        return {}
+    eyes = client if getattr(client, "label", "") == "openai" else decisions.AsyncDecisionsClient()
+    try:
+        confirmed = await asyncio.gather(*(look(tl, s, where, eyes, gate) for s in doubtful))
+    except Exception as e:  # the screen is an extra: the words' verdicts stand
+        return {"error": f"{type(e).__name__}: {str(e)[:200]}"}
+    finally:
+        if eyes is not client:
+            await eyes.aclose()
+    usage = eyes.usage
+    return {"looked": usage["calls"], "confirmed": sum(confirmed), "input_tokens": usage["input_tokens"],
+            "cost_usd": decisions.cost_usd(usage["input_tokens"])}
 
 
 def _clock(t: float) -> str:

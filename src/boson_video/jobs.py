@@ -146,7 +146,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             stage = "summary"
             _write_status(where, stage=stage, started=started)
             try:
-                add_summary(tl)
+                add_summary(tl, where=where)
                 library.save(tl, where)
             except Exception as e:  # the summary is an extra; the words are what the plugin needs
                 _write_status(where, stage="done", started=started, note=f"no summary: {e}")

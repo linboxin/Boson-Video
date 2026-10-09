@@ -15,6 +15,8 @@ Ways of checking:
 - openai, screen text: the same model given only the OCR text of the frame
 - jev, screen text: Jev given the OCR text (the best Jev can do today: it can't see)
 - code only, screen text: the claim's numbers looked up in the OCR text
+- jev, words / jev, words then frames: the claim cited to what was said while the slide was up and
+  checked as the product checks a summary sentence, without and with the second look at the screen
 """
 
 from __future__ import annotations
@@ -30,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from boson_video import checker, decisions, library  # noqa: E402
+from boson_video.timeline import Sentence  # noqa: E402
 from boson_video.env import load_env  # noqa: E402
 
 FIXTURE = ROOT / "tests" / "fixtures" / "planted_frames.json"
@@ -148,6 +151,19 @@ async def judge_all(cases: list[dict], make_client, given: str, both: bool) -> t
     return list(verdicts), usage
 
 
+def as_cited(cases: list[dict], second_look: bool) -> tuple[list[str], dict]:
+    """Each claim cited to the passages said in the 15 s after its slide appears, checked by Jev the way
+    a summary is (all at once), then, with `second_look`, the screen for the ones the words didn't confirm."""
+    tl = library.load(VIDEO)
+    sentences = []
+    for c in cases:
+        t = int(c["frame"].split(".")[0]) / 1000
+        cited = [i for i, seg in enumerate(tl.transcript) if seg.end > t and seg.start < t + 15]
+        sentences.append(Sentence(c["claim"], "", cited))
+    stats = checker.check_sentences(tl, sentences, where=library.folder(VIDEO) if second_look else None)
+    return [s.check or "unchecked" for s in sentences], stats
+
+
 def code_only(cases: list[dict]) -> list[str]:
     return ["unsupported" if checker.missing_numbers(c["claim"], c["screen_text"], strict=True) else "unchecked"
             for c in cases]
@@ -204,6 +220,16 @@ def main() -> int:
         print(f"{name:26} {a:>8} of {t:<3} {c:>9} of {f:<3}   {cost}")
         for m in misses:
             print(m)
+    if checker.jev_available():
+        for name, second in (("jev, words", False), ("jev, words then frames", True)):
+            verdicts, stats = as_cited(cases, second)
+            a, t, c, f, misses = score(cases, verdicts)
+            fr = stats.get("frames", {})
+            extra = (f"looked again at {fr['looked']}, the screen confirmed {fr['confirmed']}, ${fr['cost_usd']:.4f}"
+                     if fr.get("looked") else "")
+            print(f"{name:26} {a:>8} of {t:<3} {c:>9} of {f:<3}   {extra}")
+            for m in misses:
+                print(m)
     verdicts = code_only(cases)
     a, t, c, f, misses = score(cases, verdicts)
     false_alarms = [x for x, v in zip(cases, verdicts) if x["true"] and v == "unsupported"]

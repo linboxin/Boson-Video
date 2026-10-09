@@ -131,7 +131,7 @@ def make_handler(root: Path):
             if not folder or not question:
                 return self._json(400, {"error": "a video id and a question, please"})
             try:
-                result = study.answer(load(folder), question)
+                result = study.answer(load(folder), question, where=folder)
             except study.StudyError as e:
                 return self._json(502, {"error": str(e)})
             except Exception as e:  # anything else still answers, so the page can say what went wrong
