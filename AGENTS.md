@@ -27,7 +27,7 @@ browser.
 - `speech.py` + `bv_speech.swift`: Apple's on-device transcriber (macOS 26), built on first use into
   `~/Library/Caches/boson-video/`; pieces run at once; `names()` lists the video's own names for the writer
 - `sensevoice.py`: SenseVoice through sherpa-onnx, where Apple's transcriber isn't available (Windows, Linux)
-- `mercury.py`: the one Mercury client (strict JSON, retries, cost)
+- `llm.py`: the one writing client: any OpenAI-compatible endpoint, Mercury by default (`BOSON_WRITER_BASE_URL`, `BOSON_WRITER_MODEL`, `BOSON_WRITER_API_KEY`); strict JSON, retries, cost
 - `study.py`: English for every passage, the glossary, and answers to questions (Jev finds, Mercury explains, Jev checks)
 - `web.py`: `boson-video web`, the product page (Starlette): invite codes and a signed cookie, per-code videos and daily limits, links and uploads, the document as JSON, answers with frames · `app/`: its one page (`index.html`, `app.css`, `app.js`; plain JS, no libraries, no product name): ribbon with hover preview and readout; Summary, Transcript, Terms, Scenes and Ask tabs; original / both / English
 - `server.py`: `boson-video serve`, the website: a front page to paste a YouTube link (`/api/open` starts the background build, `/api/status` follows it), pages and their frames, `/api/ask` (JSON from its own origin only), questions kept in `<id>/notes.json`
@@ -39,7 +39,7 @@ browser.
 - `moments.py`: the moment, the unit everything cites: scenes, words, screen text and the frame joined, coded state, delta, trajectory or seek
 - `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
-- `writer.py`: Mercury writes the summary and sections (strict JSON schema, every sentence cites passages, one retry)
+- `writer.py`: the summary harness: one call for a short video; part by part (chapters or an outline) with a tldr pass for 15 minutes and up; `repair` rewrites what fails the check or narrates. `scripts/summary_bakeoff.py` measures any change, blind
 - `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired
 - `ask.py`: Jev finds the passage that answers a question (one pass, or two for more than 255 passages)
 - `env.py`: loads keys from `.env`

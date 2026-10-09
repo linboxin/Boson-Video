@@ -8,7 +8,7 @@ import pytest
 
 from boson_video import ask as ask_mod
 from boson_video import checker, writer
-from boson_video.timeline import Screen, Segment, Sentence, Summary, Timeline, Video
+from boson_video.timeline import Chapter, Screen, Section, Segment, Sentence, Summary, Timeline, Video
 
 
 def _timeline(n: int = 6, language: str = "zh_CN") -> Timeline:
@@ -245,20 +245,91 @@ def test_instructions_can_be_swapped_per_call():
     assert body["messages"][0]["content"].startswith("Old rules. Simplified Chinese.")
 
 
-def test_an_openai_model_writes_through_the_responses_api(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test")
-    seen = {}
-    reply = {"tldr": [{"text": "一句", "text_en": "One line", "evidence": [0]}],
-             "sections": [{"title": "要点", "title_en": "The point", "start_id": 0,
-                           "sentences": [{"text": "二", "text_en": "Two", "evidence": [1]}]}]}
-
+def _model(replies: dict, seen: list | None = None):
+    """A fake OpenAI-compatible endpoint answering by the schema name each request asks for."""
     def handler(request):
-        seen.update(json.loads(request.content))
-        return httpx.Response(200, json={"output_text": json.dumps(reply, ensure_ascii=False),
-                                         "usage": {"input_tokens": 1000, "output_tokens": 200}})
+        body = json.loads(request.content)
+        name = body["response_format"]["json_schema"]["name"]
+        if seen is not None:
+            seen.append((str(request.url), name, body))
+        reply = replies[name](json.loads(body["messages"][1]["content"])) if callable(replies[name]) else replies[name]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(reply, ensure_ascii=False)}}],
+                                         "usage": {"prompt_tokens": 100, "completion_tokens": 20}})
+    return httpx.MockTransport(handler)
 
-    summary, stats = writer.write(_timeline(3), [], model="gpt-6-luna", transport=httpx.MockTransport(handler))
-    assert summary.writer == "gpt-6-luna" and summary.tldr[0].text == "一句"
-    assert seen["text"]["format"]["strict"] is True and seen["reasoning"]["effort"] == "medium"
-    assert json.loads(seen["input"][1]["content"])["target_sentences"] == 10
-    assert stats["cost_usd"] == round((1000 * 0.10 + 200 * 0.50) / 1e6, 5)
+
+def _sentence(text, *ids):
+    return {"text": text, "text_en": "", "evidence": list(ids)}
+
+
+def test_any_openai_compatible_endpoint_writes_by_configuration(monkeypatch):
+    monkeypatch.setenv("BOSON_WRITER_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setenv("BOSON_WRITER_MODEL", "qwen3")
+    monkeypatch.delenv("BOSON_WRITER_EFFORT", raising=False)
+    seen = []
+    reply = {"tldr": [_sentence("一句", 0)], "sections": [{"title": "要点", "title_en": "", "start_id": 0, "sentences": [_sentence("二", 1)]}]}
+    summary, _ = writer.write(_timeline(3), [], transport=_model({"read_view": reply}, seen))
+    url, _, body = seen[0]
+    assert url == "http://localhost:11434/v1/chat/completions" and body["model"] == "qwen3"
+    assert "temperature" not in body and "reasoning_effort" not in body  # Mercury-only settings
+    assert summary.writer == "qwen3"
+
+
+def test_a_long_video_is_written_part_by_part(monkeypatch):
+    monkeypatch.delenv("BOSON_WRITER_BASE_URL", raising=False)
+    monkeypatch.setenv("INCEPTION_API_KEY", "test")
+    tl = _timeline(100)  # 1,000 s
+    tl.chapters = [Chapter(0, "开场"), Chapter(5, "一闪而过"), Chapter(300, "方法"), Chapter(700, "结论")]
+    seen = []
+
+    def section(body):
+        first = int(body["transcript"].split(" ", 1)[0])
+        assert body["with_numbers"] and body["target_sentences"] >= 2
+        return {"title": f"第{first}段的要点", "title_en": "", "sentences": [_sentence(f"段落{first}", first)]}
+
+    summary, stats = writer.write(tl, [], transport=_model({"section": section, "tldr": {"tldr": [_sentence("总的结论", 0, 70)]}}, seen))
+    names = [name for _, name, _ in seen]
+    assert names.count("section") == 3 and names[-1] == "tldr"  # a 5-second chapter joins its neighbour
+    assert [sec.title for sec in summary.sections] == ["第0段的要点", "第30段的要点", "第70段的要点"]
+    assert summary.tldr[0].text == "总的结论" and stats["parts"] == 3
+
+
+def test_without_chapters_an_outline_finds_the_parts(monkeypatch):
+    monkeypatch.delenv("BOSON_WRITER_BASE_URL", raising=False)
+    monkeypatch.setenv("INCEPTION_API_KEY", "test")
+    tl = _timeline(100)
+    outline = {"sections": [{"start_id": 0, "covers": "a"}, {"start_id": 40, "covers": "b"}, {"start_id": 80, "covers": "c"}]}
+
+    def section(body):
+        first = int(body["transcript"].split(" ", 1)[0])
+        return {"title": f"T{first}", "title_en": "", "sentences": [_sentence("x", first)]}
+
+    summary, _ = writer.write(tl, [], transport=_model({"outline": outline, "section": section, "tldr": {"tldr": [_sentence("y", 0)]}}))
+    assert [round(sec.start) for sec in summary.sections] == [0, 400, 800]
+
+
+def test_repair_rewrites_drops_and_retitles(monkeypatch):
+    monkeypatch.delenv("BOSON_WRITER_BASE_URL", raising=False)
+    monkeypatch.setenv("INCEPTION_API_KEY", "test")
+    tl = _timeline(6)
+    wrong = Sentence("每段都说 999", "", [1], "unsupported")
+    narrating = Sentence("本期视频介绍了第二段", "", [2], "supported")
+    hopeless = Sentence("与视频无关的说法", "", [3], "unsupported")
+    fine = Sentence("第五段说 500", "", [5], "supported")
+    tl.summary = Summary([fine], [Section("开场", "", 0, 60, [wrong, narrating, hopeless])], "mercury-2.5")
+    reply = {"items": [{"id": 0, "text": "第一段说 100", "text_en": "", "evidence": [1]},
+                       {"id": 1, "text": "第二段说 200", "text_en": "", "evidence": [2]},
+                       {"id": 2, "text": "", "text_en": "", "evidence": []}],
+             "titles": [{"id": 0, "title": "各段的数字", "title_en": ""}]}
+    rechecked = []
+
+    def check(tl, sentences):
+        rechecked.extend(sentences)
+        for x in sentences:
+            x.check = "supported"
+
+    out = writer.repair(tl, transport=_model({"repair": reply}), check=check)
+    sec = tl.summary.sections[0]
+    assert [x.text for x in sec.sentences] == ["第一段说 100", "第二段说 200"] and sec.title == "各段的数字"
+    assert rechecked == sec.sentences and out["dropped"] == 1 and out["still_failing"] == 0
+    assert tl.summary.tldr == [fine]  # untouched

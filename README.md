@@ -51,7 +51,8 @@ uvx boson-video web             # http://127.0.0.1:8770; the first run prints yo
 Keys make it fuller: `INCEPTION_API_KEY` (Mercury writes the summary, the English and the terms)
 and `TYPESAFE_API_KEY` (Jev checks every sentence and answers questions). Put them in a `.env` file in
 the folder you start from, or in `~/.boson-video/.env`; the server warns at start when one is missing.
-Without them you still get the scenes, the transcript and search.
+Without them you still get the scenes, the transcript and search. Any OpenAI-compatible model can
+write instead of Mercury: set `BOSON_WRITER_BASE_URL`, `BOSON_WRITER_MODEL` and `BOSON_WRITER_API_KEY`.
 
 ## Tested videos
 

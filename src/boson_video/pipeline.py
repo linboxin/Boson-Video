@@ -11,7 +11,7 @@ from pathlib import Path
 
 import httpx
 
-from . import audio, checker, local, mercury, scenes, sensevoice, speech, storyboard, study, writer, youtube
+from . import audio, checker, llm, local, scenes, sensevoice, speech, storyboard, study, writer, youtube
 from .timeline import Timeline
 
 
@@ -152,13 +152,16 @@ def add_summary(tl: Timeline, effort: str | None = None) -> dict:
             if english:
                 tl.translation, extras["translate"] = english.result()
             tl.terms, tl.questions, extras["glossary"] = terms.result()
-        except mercury.MercuryError as e:
+        except llm.LLMError as e:
             extras["error"] = str(e)
     clock.lap("study")
     check_stats = checker.check(tl)
     clock.lap("check")
+    # one more try for what failed the check or narrates the video, then checked again
+    repair_stats = writer.repair(tl, effort, check=checker.check_sentences)
+    clock.lap("repair")
     tl.timings.update(clock.laps)
-    return {"write": write_stats, "check": check_stats, **extras}
+    return {"write": write_stats, "check": check_stats, "repair": repair_stats, **extras}
 
 
 async def _warm(client: httpx.AsyncClient, video_id: str) -> None:

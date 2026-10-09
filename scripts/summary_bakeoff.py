@@ -1,4 +1,4 @@
-"""Which writer gives the best summary? Four writers on the same videos, scored and judged blind.
+"""Which way of writing gives the best summary? The writers on the same videos, scored and judged blind.
 
     uv run python scripts/summary_bakeoff.py <video key> … [--out out/bakeoff]
 
@@ -7,7 +7,8 @@ sentence. Scores computed here: length and sentences per minute, sentences that 
 coverage (the share of 5-minute stretches, and of chapters, that the summary cites), concrete
 details (numbers), and narration ("the video says…", "本期视频…"). The owner judges quality
 on blind.html, where the versions are shuffled and unlabelled; key.json says which is which.
-Costs real money: Mercury and Luna well under a cent a video, Sol a few cents.
+The writing model is whatever llm.py points at (Mercury by default), so the same comparison
+measures a better model the day it is configured. Costs about a cent a video with Mercury.
 """
 
 from __future__ import annotations
@@ -40,23 +41,26 @@ Rules:
 - `sections`: in time order. If `chapters` are given, make one section per chapter, titled like the chapter. Otherwise split by topic into about one section per 4-8 minutes (at least 2). Each section has 2-4 sentences. `start_id` is the id of the section's first transcript passage.
 """
 
-CONTENDERS = [  # (label, model, effort, instructions)
-    ("mercury-today", "mercury-2.5", "low", SYSTEM_V1),
-    ("mercury-new", "mercury-2.5", "high", None),
-    ("luna-new", "gpt-6-luna", "medium", None),
-    ("sol-new", "gpt-6.1-sol", "medium", None),
+CONTENDERS = [  # (label, effort, instructions, part by part, repair)
+    ("before", "low", SYSTEM_V1, False, False),       # the writer as it was until 2026-10-09
+    ("one-call", "high", None, False, False),         # the new instructions, the whole video in one call
+    ("harness", "high", None, None, True),            # part by part from 15 minutes, then repair
 ]
 NARRATION = re.compile(r"视频|本期|这期|作者|博主|主播|[Uu][Pp]主|\b(the|this) video\b|\bthe (author|creator|host)\b|\bin this (episode|talk)\b", re.I)
 LABEL_TITLE = re.compile(r"^(开场|引子|引言|简介|介绍|结尾|总结|结语|封面.*|intro(duction)?|outro|conclusion|summary|part \d+)$", re.I)
 NUMBER = re.compile(r"\d|[零一二三四五六七八九十百千万亿两]+(?:个|年|月|天|倍|次|分钟|小时|美元|元|%|成)")
 
 
-def write_one(tl, names, label, model, effort, instructions):
+def write_one(tl, names, label, effort, instructions, parts, repair):
     tl = copy.deepcopy(tl)
     started = time.perf_counter()
-    tl.summary, stats = writer.write(tl, names, effort, model=model, instructions=instructions)
-    stats["seconds"] = round(time.perf_counter() - started, 1)
+    tl.summary, stats = writer.write(tl, names, effort, instructions=instructions, parts=parts)
     checker.check(tl)
+    if repair:
+        fixed = writer.repair(tl, effort, check=checker.check_sentences)
+        stats["cost_usd"] = round(stats.get("cost_usd", 0) + fixed.get("cost_usd", 0), 5)
+        stats["repair"] = fixed
+    stats["seconds"] = round(time.perf_counter() - started, 1)
     return label, tl, stats
 
 
@@ -119,7 +123,7 @@ article{{margin:0 0 48px}} h2{{margin:0}} .meta{{color:#6b6b73;margin:4px 0 12px
 .v h3{{margin:0 0 8px;font-size:15px}} .tldr{{font-weight:500}} h4{{margin:14px 0 4px;font-size:14px}} ul{{margin:0;padding-left:18px}}
 li{{margin:0 0 6px}} .en{{color:#6b6b73;font-size:13px}} .flag{{color:#b26a00;font-weight:700}}
 .pick{{font-size:16px}} .pick label{{margin-right:14px}} button{{font:inherit;padding:8px 16px;border-radius:999px;border:0;background:#1c1c1f;color:#fff;cursor:pointer}}
-</style></head><body><h1>Which summary is best?</h1><p>Each video has four versions from different writers, shuffled. Pick the one you'd rather read.
+</style></head><body><h1>Which summary is best?</h1><p>Each video has several versions, shuffled and unlabelled. Pick the one you'd rather read.
 <b>?</b> marks a sentence that failed the check. Then copy your picks and paste them to Claude.</p>
 {"".join(cards)}<p><button onclick="const p=[...document.querySelectorAll('article')].map(a=>{{const c=a.querySelector('input:checked');return a.querySelector('input').name+': '+(c?c.value:'-')}}).join('\\n');navigator.clipboard.writeText(p);this.textContent='Copied'">Copy my picks</button></p>
 </body></html>'''
@@ -145,12 +149,13 @@ def main(keys: list[str], out: Path) -> None:
             sc = scores(written, stats)
             results[key][label] = sc
             (out / f"{key}.{label}.json").write_text(json.dumps(written.to_json()["summary"], ensure_ascii=False, indent=1))
+            extra = f" · repair {stats['repair']}" if stats.get("repair") else ""
             print(f"  {label:14s} {sc['sentences']:3d} sentences ({sc['per_minute']}/min) · failed check {sc['failed_check']}/{sc['checked']} · "
                   f"coverage {sc['coverage_5min']} · chapters {sc['chapters_covered']} · numbers {sc['with_numbers']} · "
-                  f"narration {sc['narration']} · label titles {sc['label_titles']} · {sc['seconds']} s · ${sc['cost_usd']}", flush=True)
+                  f"narration {sc['narration']} · label titles {sc['label_titles']} · {sc['seconds']} s · ${sc['cost_usd']}{extra}", flush=True)
             versions.append((label, section_html(written)))
         random.shuffle(versions)
-        letters = "ABCD"
+        letters = "ABCDEFG"
         key_map[key] = {letters[i]: label for i, (label, _) in enumerate(versions)}
         rows.append({"key": key, "title": tl.video.title, "minutes": round(tl.video.duration / 60),
                      "language": writer.language_name(tl.language),
@@ -161,9 +166,9 @@ def main(keys: list[str], out: Path) -> None:
     print(f"\nblind page: {out / 'blind.html'}  (answer key: {out / 'key.json'})")
 
 
-def _safe(tl, names, label, model, effort, instructions):
+def _safe(tl, names, label, effort, instructions, parts, repair):
     try:
-        return write_one(tl, names, label, model, effort, instructions)
+        return write_one(tl, names, label, effort, instructions, parts, repair)
     except Exception as e:  # one writer failing shouldn't stop the others
         return label, None, f"{type(e).__name__}: {str(e)[:200]}"
 

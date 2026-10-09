@@ -17,7 +17,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from . import ask as ask_mod
-from . import checker, mercury
+from . import checker, llm
 from .timeline import Segment, Sentence, Term, Timeline
 
 CHUNK = 120  # passages per translation request; chunks run at once
@@ -116,7 +116,7 @@ def translate_texts(texts: list[str], title: str, names: list[str], transport=No
         payload = {"title": title, "names": names, "transcript": "\n".join(f"{i} {texts[i]}" for i in sorted(want))}
         if on_screen:
             payload["on_screen"] = on_screen
-        return mercury.ask_json(TRANSLATE_SYSTEM, payload, TRANSLATE_SCHEMA, "translation",
+        return llm.ask_json(TRANSLATE_SYSTEM, payload, TRANSLATE_SCHEMA, "translation",
                                 usable=lambda o: len(want & {x.get("id") for x in o.get("lines", [])}) >= 0.9 * len(want),
                                 effort="instant", max_tokens=16000, transport=transport)
 
@@ -153,7 +153,7 @@ def glossary(tl: Timeline, names: list[str], language: str, transport=None) -> t
                "transcript": "\n".join(f"{i} {s.text}" for i, s in enumerate(tl.transcript))}
     if lines := tl.screen_lines():
         payload["on_screen"] = lines
-    out, st = mercury.ask_json(GLOSSARY_SYSTEM.format(language=language), payload, GLOSSARY_SCHEMA, "glossary",
+    out, st = llm.ask_json(GLOSSARY_SYSTEM.format(language=language), payload, GLOSSARY_SCHEMA, "glossary",
                                usable=lambda o: bool(o.get("terms")), transport=transport)
     terms = []
     for t in out["terms"]:
@@ -200,9 +200,9 @@ def answer(tl: Timeline, question: str, jev=None, transport=None) -> dict:
         "passages": "\n".join(f"{i} {_clock(both[i].start)} {both[i].text}" for i in around),
     }
     try:
-        out, st = mercury.ask_json(ANSWER_SYSTEM, payload, ANSWER_SCHEMA, "answer",
+        out, st = llm.ask_json(ANSWER_SYSTEM, payload, ANSWER_SCHEMA, "answer",
                                    usable=lambda o: bool(o.get("answer") or o.get("background")), transport=transport)
-    except mercury.MercuryError as e:
+    except llm.LLMError as e:
         raise StudyError(str(e)) from None
     allowed = set(around)
     sentences = [Sentence(x["text"].strip(), "", sorted({e for e in x.get("evidence", []) if e in allowed}))

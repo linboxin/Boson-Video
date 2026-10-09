@@ -93,3 +93,20 @@ save?") was answered in 2.9 s, both sentences checked, with three slides; on the
 | --- | --- | --- | --- | --- |
 | Mac, Apple's transcriber (built on first use) | Rick Astley (English, 3:33) | 2.0 s | 9.9 s | download 5.7 · prep 3.1 · speech 1.2 s |
 | Local models, first use (SenseVoice downloaded) | 程序员老王, abliteration (Chinese, 11:35) | 1.3 s | 24.1 s | download 1.6 · prep 0.6 · model download 17.0 · load 1.1 · voice detection 1.8 · speech 1.9 s |
+
+## The summary harness (2026-10-09, Mercury, six videos: Chinese and English, 11 to 60 minutes)
+
+`scripts/summary_bakeoff.py`; every sentence checked by Jev and code. "Before" is the writer as it was;
+"one call" has the rewritten instructions; "harness" writes videos of 15 minutes and up part by part,
+then repairs what failed the check or narrates.
+
+| Mercury… | Sentences | Failed the check | With numbers | Narrating | Label titles | Cost, all six |
+| --- | --- | --- | --- | --- | --- | --- |
+| before | 138 | 11 (8.0%) | 46 | 7 | 4 | $0.004 |
+| one call | 168 | 5 (3.0%) | 19 | 1 | 1 | $0.008 |
+| harness | 164 | 1 (0.6%) | 62 | 2 | 0 | $0.026 |
+
+Run alone (as in the product): 28 minutes written in 25.5 s (11 parts) and 60 minutes in 28.0 s (17
+parts), checked in 0.8 s, repaired in 4-9 s, both ending with no failed sentence. Run beside other
+writers, Mercury rate-limited the parts (fixed: back-off, four parts at once). For reference only,
+an earlier run of OpenAI's GPT-6 Luna and Sol in one call: 3.0% and 5.3% failed, 42 and 53 with numbers.

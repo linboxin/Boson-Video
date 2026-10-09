@@ -126,7 +126,7 @@ Layouts by kind of video, for later:
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
 | 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | In progress, 2026-10-07: runs on this computer (`boson-video web`), checked on three videos at desktop and phone size; hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 9) |
 | 7 | **Moment:** one object joins the words, the picture code, the new lines, and the frame; the four codes (state, delta, trajectory, seek) | Done, 2026-10-06 (the summary still cites passages, not moments: next) | `qbReD1cGykQ`: 90 moments (22 state, 44 delta, 24 trajectory: its animated chat demos and diagrams). KL = 2.71, shown and never said, comes back as the delta at 9:15 with its frame. Search, check, frame captions and the page cite that same moment. On six videos, a run of changes with no text on screen (a speaker at a podium) stays state and delta; `slFa9Vx3crw`'s scrolled article (21:50–23:20) is a trajectory, "better watched than read" |
-| 8 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | | The page builds with each of them |
+| 8 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | Started 2026-10-09: `llm.py` takes any OpenAI-compatible endpoint by configuration; only Mercury tested | The page builds with each of them |
 | 9 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
 | 10 | Later: a library across videos, layouts by kind of video, creator tools | | After one lecture can be retrieved as moments |
 
@@ -161,7 +161,7 @@ Each needs a number we track; "today" is as of 2026-10-04.
 
 | Bar | Measured as | Today |
 | --- | --- | --- |
-| Faithful | Share of summary sentences that fail the check; the planted-error test (`scripts/planted_errors.py`) | 4 of 75 flagged on four videos (Apple transcripts), mostly real writer slips; 1 of 12 on `slFa9Vx3crw` (SenseVoice). Planted-error fixture, 28 cases on SenseVoice transcripts, mostly English claims (2026-10-04): Jev accepts 14 of 14 true and catches 13 of 14 planted (misses an entity swap, "Customer B" for A); code alone catches all 6 number and date errors and judges nothing else |
+| Faithful | Share of summary sentences that fail the check; the planted-error test (`scripts/planted_errors.py`) | 4 of 75 flagged on four videos (Apple transcripts), mostly real writer slips; 1 of 12 on `slFa9Vx3crw` (SenseVoice). Planted-error fixture, 28 cases on SenseVoice transcripts, mostly English claims (2026-10-04): Jev accepts 14 of 14 true and catches 13 of 14 planted (misses an entity swap, "Customer B" for A); code alone catches all 6 number and date errors and judges nothing else. The summary harness (2026-10-09, Mercury, six videos): 1 of 164 sentences failed, against 11 of 138 before |
 | Complete | Chapter starts, "most replayed" peaks and points from human summaries that the page covers | Not measured (`slFa9Vx3crw`'s summary skipped its first 3½ minutes) |
 | Names and numbers right | Errors in names, tickers and figures | Names fixed by the writer from the video's own name list and, since 2026-10-06, from the text on screen (`f4zGqjYWS_Q`: 因系智能, Pandomic and a garbled section title before; after, PandaOmics and Insilico Medicine right, one sentence still writes 因矽 for 英矽; not yet scored as a rate); numbers checked in code, including Chinese numerals as SenseVoice writes them |
 | Fast | Time to first view, time to full read view; sharp work against K, not against runtime | 1.4 s and 14.4 s (Mac, 25 min, audio cached); about 2 s and 50 s (Windows, 35 min, audio cached). Cost against K is not measured yet |
@@ -237,6 +237,9 @@ videos on our servers (bot checks and other people's rights).
   codes, no accounts; videos come in as YouTube links or uploaded files (on a server, YouTube
   links come through the extension, milestone 9, as decided on 2026-10-04). It is built as
   `boson-video web`, beside the paste-a-link website `boson-video serve` above.
+- 2026-10-09: **Mercury stays the writer** (it is the cheapest), and the harness must make any model
+  write well, so a better model later makes the page better without code changes; nothing in the
+  code is tied to one vendor. Summaries are judged by measurement and by the owner, blind.
 - 2026-10-08: **publish the plugin; the repo goes public, MIT licensed.** "Just connect" means
   the installed plugin first (`uvx boson-video mcp`, listed in the MCP Registry as
   `io.github.linboxin/boson-video`): it runs on the user's computer, so YouTube works and it costs
