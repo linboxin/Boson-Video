@@ -38,7 +38,8 @@ browser.
 - `screens.py`: what was shown, as text: frames at the scene map's moments, read by OCR; subtitles kept apart; build steps credited with their new lines
 - `ocr.py`: RapidOCR in a worker process (never alongside sherpa-onnx), reading frames as they arrive
 - `moments.py`: the moment, the unit everything cites: scenes, words, screen text and the frame joined, coded state, delta, trajectory or seek
-- `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP
+- `plugin.py`: the plugin's tools as plain functions (briefing, read, frames, search, check, list) · `mcp_server.py`: wires them to MCP; `video_open` carries the video's page (MCP Apps)
+- `viewer.py`: that page inside the user's AI app: `app/` with `app/mcp.js` in front (JSON-RPC over postMessage to the app), fed by tools only the page calls (`page_document`, `page_picture`, `page_sheet`); questions go to the chat
 - `accuracy.py`: error rates against human captions (words; characters for Chinese)
 - `writer.py`: the summary harness: one call for a short video; part by part (chapters or an outline) with a tldr pass for 15 minutes and up; `repair` rewrites what fails the check or narrates. `scripts/summary_bakeoff.py` measures any change, blind
 - `checker.py`: Jev checks each sentence against its passages; numbers compared in code; citations repaired; a sentence the words don't confirm gets a second look at the frames on screen then (OpenAI, only to confirm, at 0.9 or more; off unless `BOSON_SCREEN_CHECK=1`)

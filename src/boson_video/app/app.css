@@ -43,6 +43,28 @@
     --gloss-tint: #2a2140;
   }
 }
+/* the AI app's own theme (app/mcp.js sets it), the same dark values */
+:root[data-theme="dark"] {
+  --bg: #121214;
+  --panel: #19191c;
+  --fg: #ececef;
+  --muted: #9c9ca5;
+  --faint: #6c6c74;
+  --line: #2a2a2f;
+  --tint: #232327;
+  --accent: #9aa5ff;
+  --accent-tint: #252943;
+  --ok: #72c477;
+  --warn: #f0b45a;
+  --bad: #ff7a6e;
+  --new: #6f8cff;
+  --repeat: #5f6675;
+  --base: #3f424a;
+  --heat: #f0a640;
+  --gloss: #c4a5f5;
+  --gloss-tint: #2a2140;
+  color-scheme: dark;
+}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
@@ -236,7 +258,7 @@ mark { background: color-mix(in srgb, var(--warn) 25%, transparent); color: inhe
 
 /* ---- scenes ---- */
 .chapter-h { font-size: 13px; font-weight: 600; color: var(--muted); margin: 18px 0 8px; }
-.scene { display: grid; grid-template-columns: 92px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+.scene { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
 .scene .when { font: 12px/1.6 var(--ui); color: var(--muted); white-space: nowrap; }
 .scene .when .t { margin: 0 0 4px; }
 .scene .shot { padding: 0; display: block; border-radius: 10px; overflow: hidden; }
@@ -303,7 +325,30 @@ mark { background: color-mix(in srgb, var(--warn) 25%, transparent); color: inhe
   .pane { padding: 16px; }
   .tools { top: -16px; margin: -16px -16px 12px; padding: 10px 16px; }
   .composer { padding: 8px 12px max(12px, env(safe-area-inset-bottom)); }
-  .scene { grid-template-columns: 74px 1fr; }
+  .scene { grid-template-columns: 74px minmax(0, 1fr); }
   .home { padding-top: 12vh; }
 }
 .lang-both .has-en > .t-en .mark { display: none; }
+
+/* ---- inside an AI app (app/mcp.js): a block in the chat with all of the page, or the whole page in full view ---- */
+.expand { align-self: flex-end; flex: none; font-size: 12.5px; color: var(--muted); padding: 3px 11px; border: 1px solid var(--line); border-radius: 999px; }
+.expand:hover { color: var(--fg); background: var(--tint); }
+.player .poster.file img { opacity: 1; }
+.player .poster.file span { top: auto; bottom: 12px; transform: translateX(-50%); font-size: 12.5px; white-space: nowrap; }
+.embed:not(.full) .watch { height: 640px; }
+@media (min-width: 620px) and (max-width: 960px) {
+  .embed .watch { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .embed .tabbar { padding: 8px 10px; }
+  .embed .tab { padding: 4px 9px; font-size: 13.5px; }
+  .embed .stage { overflow: auto; padding: 12px 16px 16px; gap: 10px; }
+  .embed .player { border-radius: var(--radius); }
+  .embed .meta { padding: 0; }
+  .embed .meta .sub, .embed .meta .headline, .embed .meta .stats, .embed .peek { display: block; }
+  .embed .legend, .embed .readout { display: flex; }
+  .embed .ribbon { padding: 0; }
+  .embed .ribbon svg { height: 52px; }
+  .embed .side { border-left: 1px solid var(--line); border-top: 0; }
+}
+@media (max-width: 619px) {
+  .embed .expand { position: absolute; z-index: 3; top: 8px; right: 12px; background: rgba(0, 0, 0, .45); color: #fff; border: 0; }
+}

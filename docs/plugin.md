@@ -36,6 +36,26 @@ or Parakeet for English (about 482 MB), into `~/.cache/boson-video/models`. Your
 one-time wait. `uvx boson-video models` fetches them ahead of time; `BOSON_NO_DOWNLOAD=1` forbids
 downloads.
 
+## The video's page in the chat
+
+In apps that support [MCP Apps](https://modelcontextprotocol.io/docs/extensions/apps) (Claude
+Desktop, claude.ai, ChatGPT, Cursor, VS Code), `video_open` also shows the video's page in the
+chat: the same page as `boson-video web`. It has the player, the ribbon (hover for that second's
+frame and words), the readout, and the Summary, Transcript, Terms, Scenes and Ask tabs, in the
+original, both or English. It fills itself in as the video is read. **Full view** opens it over
+the whole window.
+
+- Your AI still answers. A question typed on the page, or a suggested one, goes to the chat as
+  your next message with the video and the second you're at, and your AI answers with the tools.
+  Nothing extra runs and no key is needed; it's your usual subscription.
+- With no writing key there is no summary, English or terms on the page: one click asks your AI
+  to write them in the chat.
+- The page gets its data from three tools only it can call (`page_document`, `page_picture`,
+  `page_sheet`); apps hide them from the model. It loads YouTube's player and nothing else from
+  outside; frames and sheets come from the plugin.
+- A video file shows its pictures and words, but doesn't play inside the chat.
+- In a terminal (Claude Code, Codex) nothing changes: the AI gets the same text as before.
+
 ## How the intelligence works
 
 Three jobs, done by different hands:

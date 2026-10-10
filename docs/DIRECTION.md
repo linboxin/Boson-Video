@@ -66,7 +66,9 @@ Three layers, each with one job:
    cite); tools then read a stretch of the transcript, show frames at full resolution, search,
    and check a claim. Long work (download, transcription) runs in the background, so no tool
    call waits long. Claude can't take video, but it can take images, so the frame tool is how
-   the user's AI sees the video.
+   the user's AI sees the video. In apps that support MCP Apps (Claude Desktop, claude.ai,
+   ChatGPT, Cursor), opening a video also shows its page in the chat, the same page as
+   `boson-video web`, and a question asked there goes to the user's own AI (since 2026-10-10).
 2. **The website** (`boson-video serve`): paste a YouTube link on the front page; the page
    opens once the scene map is ready (seconds) and fills in as the words, the screen and the
    summary arrive. It runs on the user's computer, so YouTube downloads stay on their side; a
@@ -121,7 +123,7 @@ Layouts by kind of video, for later:
 | 2 | Words: Chinese and English transcripts on the Mac, lined up with the scenes | Done, 2026-10-02 | Measured: 25 min of Chinese in 13.8 s end to end; 5.3% character errors (Mandarin TEDx), 10.0% word errors (English TED, about half fillers the captions omit) |
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
-| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried). Packaged 2026-10-08: `uvx boson-video mcp` on a fresh machine, no Node, ffmpeg or keys; published the same day: PyPI `boson-video` 0.2.0 and the MCP Registry (`io.github.linboxin/boson-video`, active); the repo is public, MIT | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
+| 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried). Packaged 2026-10-08: `uvx boson-video mcp` on a fresh machine, no Node, ffmpeg or keys; published the same day: PyPI `boson-video` 0.2.0 and the MCP Registry (`io.github.linboxin/boson-video`, active); the repo is public, MIT. 2026-10-10: the video's page in the chat (MCP Apps), checked in a stand-in host and headless Chrome, not yet in Claude Desktop, claude.ai, ChatGPT or Cursor | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (owner, 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
 | 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | In progress, 2026-10-07: runs on this computer (`boson-video web`), checked on three videos at desktop and phone size; hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 9) |
@@ -240,6 +242,10 @@ videos on our servers (bot checks and other people's rights).
 - 2026-10-09: **Mercury stays the writer** (it is the cheapest), and the harness must make any model
   write well, so a better model later makes the page better without code changes; nothing in the
   code is tied to one vendor. Summaries are judged by measurement and by the owner, blind.
+- 2026-10-10: **the page in the chat.** Someone who connects only the plugin shouldn't see the
+  video only as text, and what they see should be interactive. So the plugin shows the product
+  page itself in the chat through MCP Apps (everything the web page shows, not only the player),
+  fed by the plugin; questions asked on it go to the user's own AI, on their own subscription.
 - 2026-10-08: **publish the plugin; the repo goes public, MIT licensed.** "Just connect" means
   the installed plugin first (`uvx boson-video mcp`, listed in the MCP Registry as
   `io.github.linboxin/boson-video`): it runs on the user's computer, so YouTube works and it costs

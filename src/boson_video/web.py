@@ -150,12 +150,13 @@ def _admit(root: Path, cid: str, info: dict, key: str) -> str | None:
 
 
 def load(root: Path, key: str) -> Timeline | None:
-    hit = _load(root, key)
+    hit = cached(root, key)
     return hit[1] if hit else None
 
 
-def _load(root: Path, key: str) -> tuple[float, Timeline, list[dict]] | None:
-    """The video and its sheets' sizes (the images stay on disk; the page fetches them)."""
+def cached(root: Path, key: str) -> tuple[float, Timeline, list[dict]] | None:
+    """The video and its sheets' sizes (the images stay on disk; the page fetches them). The same page
+    inside an AI app (viewer.py) reads it here too."""
     path = root / key / "timeline.json"
     if not path.exists():
         return None
@@ -398,7 +399,7 @@ async def video(request: Request) -> Response:
         return mine
     root, cid, key = mine
     status = jobs.status(key, root)
-    hit = await run_in_threadpool(_load, root, key)
+    hit = await run_in_threadpool(cached, root, key)
     if hit is None:
         return JSONResponse({"key": key, "status": status})
     if _fill_in(request, root, key, hit[1], status):

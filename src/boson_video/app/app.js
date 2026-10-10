@@ -22,6 +22,10 @@
   };
   const KINDS = { new: "new visual", repeat: "seen before", base: "base shot" };
   const GLOSSED = 2;  // a term carries its English above it on its first mentions; later ones are only underlined
+  // Where the page's data comes from: this server, or, inside an AI app, the plugin (app/mcp.js).
+  const SRC = window.BV_SOURCE || null;
+  const ASK_FIRST = ["Summarize this video section by section, with the times", "Explain the key terms in this video",
+                     "What is shown on screen that isn't said?"];
 
   // ---- small helpers
   function h(tag, attrs, ...kids) {
@@ -194,9 +198,11 @@
   let ytReady = null;
   function loadYT() {
     if (window.YT && window.YT.Player) return Promise.resolve();
-    if (!ytReady) ytReady = new Promise(resolve => {
+    if (!ytReady) ytReady = new Promise((resolve, reject) => {
       window.onYouTubeIframeAPIReady = resolve;
-      document.head.append(h("script", { src: "https://www.youtube.com/iframe_api" }));
+      // an app may not let YouTube's script in; the page then shows the poster
+      document.head.append(h("script", { src: "https://www.youtube.com/iframe_api", onerror: reject }));
+      setTimeout(() => reject(new Error("no player")), 15000);
     });
     return ytReady;
   }
@@ -265,9 +271,13 @@
       E.lang = h("div", { class: "langs", role: "group", "aria-label": "Language", hidden: true }, E.langs);
       E.q = h("input", { placeholder: "Ask about this video…", "aria-label": "Ask about this video", autocomplete: "off", disabled: true });
       E.send = h("button", { type: "submit", class: "go", "aria-label": "Ask", disabled: true }, icon("up"));
+      if (SRC && SRC.canFullscreen()) {
+        E.expand = h("button", { class: "expand", type: "button", onclick: () => SRC.fullscreen() }, "Full view");
+        SRC.onMode(full => { E.expand.textContent = full ? "Back to the chat" : "Full view"; });
+      }
       E.root = h("div", { class: "watch lang-orig" },
         h("section", { class: "stage" },
-          h("a", { class: "back", href: "/", "data-nav": "", "aria-label": "Your videos", title: "Your videos" }, icon("back")),
+          SRC ? E.expand : h("a", { class: "back", href: "/", "data-nav": "", "aria-label": "Your videos", title: "Your videos" }, icon("back")),
           E.player, h("div", { class: "meta" }, E.title, E.sub, E.headline, E.stats), h("div", {}, E.ribbon, E.legend), E.readout),
         h("section", { class: "side" },
           h("div", { class: "tabbar" }, h("nav", { class: "tabs", role: "tablist" }, Object.values(E.tabs)), E.lang),
@@ -278,16 +288,18 @@
 
     async load() {
       let doc;
-      try { doc = await api(`/api/video/${this.key}`); } catch (e) {
+      try { doc = SRC ? await SRC.doc(this.key) : await api(`/api/video/${this.key}`); } catch (e) {
         if (!this.alive) return;
-        if (!ME.in) return route();
+        if (!SRC && !ME.in) return route();
         this.el.panes.summary.replaceChildren(h("p", { class: "msg" }, e.message));
         return;
       }
       if (!this.alive) return;
       const prev = this.doc;
       this.doc = doc;
+      if (doc.key) this.key = doc.key;  // inside an AI app the page starts from the link video_open was given
       if (doc.video && !(prev && prev.video)) this.stage();
+      else if (!doc.video && doc.status && doc.status.stage === "error") this.el.player.replaceChildren(h("div", { class: "wait" }, "No video to show"));
       const sig = d => [(d.transcript || []).length, !!d.summary, (d.screens || []).length, (d.terms || []).length,
                         (d.scenes || []).length, d.status && d.status.stage].join("/");
       if (!prev || sig(prev) !== sig(doc)) this.panes(!prev);
@@ -327,6 +339,8 @@
       this.renderScenes();
       this.renderAskTop();
       if (first) for (const note of d.notes || []) E.qa.append(h("div", { class: "me" }, note.question), this.answer(note));
+      // inside an AI app the sheets come as data: ask for them all now, so hovering the ribbon shows frames at once
+      if (SRC) (d.sheets || []).forEach((_, i) => SRC.sheet(this.key, i, () => this.readout(this.roAt || 0)));
       E.readout.hidden = false;
       this.readout(this.now() || 0);
     }
@@ -376,9 +390,10 @@
     }
 
     img(t) { return `/media/${this.key}/at/${Math.max(0, Math.round(t * 1000))}`; }
+    // The picture of second t: from this server, or asked from the plugin once it scrolls into view.
+    pic(t, src) { return SRC ? SRC.picture(this.key, t) : h("img", { src: src || this.img(t), alt: "", loading: "lazy" }); }
     shot(t, cls = "") {
-      return h("button", { type: "button", class: cls, title: `Play from ${clock(t)}`, onclick: () => this.seek(t) },
-        h("img", { src: this.img(t), alt: "", loading: "lazy" }));
+      return h("button", { type: "button", class: cls, title: `Play from ${clock(t)}`, onclick: () => this.seek(t) }, this.pic(t));
     }
     chip(t) {
       return h("button", { class: "t", type: "button", title: `Play from ${clock(t)}`, onclick: e => { e.stopPropagation(); this.seek(t); } }, clock(t));
@@ -430,7 +445,14 @@
     progress() {
       const d = this.doc, st = d.status || {}, stage = st.stage || "queued";
       if (stage === "missing") return h("p", { class: "muted" }, "This video isn't here any more.");
-      if (stage === "done") return d.summary ? null : h("p", { class: "note" }, st.note || "No summary for this one. The transcript, terms and scenes are in the other tabs.");
+      if (stage === "done") {
+        if (d.summary) return null;
+        if (SRC && (d.transcript || []).length) {  // the plugin writes nothing itself: the user's AI does
+          return h("div", {}, h("p", { class: "note" }, "No summary here yet: in the chat, your AI writes it from the transcript and the frames."),
+            h("div", { class: "chips" }, h("button", { class: "chip", onclick: () => this.ask(ASK_FIRST[0]) }, "Ask for a summary")));
+        }
+        return h("p", { class: "note" }, st.note || "No summary for this one. The transcript, terms and scenes are in the other tabs.");
+      }
       const at = STAGES.indexOf(stage === "error" ? st.failed_at : stage);
       const eta = st.words_eta ? Math.max(1, Math.round(st.words_eta - Date.now() / 1000)) : null;
       const steps = [
@@ -528,7 +550,10 @@
         ? h("div", {},
           h("p", { class: "note" }, "Technical terms in the order they come up. “Background” is general knowledge to help you follow; “In this video” is what the speaker says, checked against the transcript."),
           h("div", { class: "term-list" }, terms.map((t, k) => this.termCard(t, k, true))))
-        : h("p", { class: "empty" }, d.status && d.status.stage === "done" ? "No terms for this video." : "The terms come with the summary."));
+        : SRC && d.status && d.status.stage === "done" && (d.transcript || []).length
+          ? h("div", {}, h("p", { class: "empty" }, "No terms here yet: your AI can explain them in the chat."),
+              h("div", { class: "chips" }, h("button", { class: "chip", onclick: () => this.ask(ASK_FIRST[1]) }, "Ask for the key terms")))
+          : h("p", { class: "empty" }, d.status && d.status.stage === "done" ? "No terms for this video." : "The terms come with the summary."));
     }
 
     termCard(t, k, withId) {
@@ -565,7 +590,7 @@
       if (d.dense) {
         pane.replaceChildren(h("p", { class: "note" }, `${S.length} shots: a grid reads better than a list.`),
           h("div", { class: "dense" }, S.map(s => h("button", { type: "button", onclick: () => this.seek(s.start) },
-            h("img", { src: this.img(s.start), alt: "", loading: "lazy" }), clock(s.start)))));
+            this.pic(s.start), clock(s.start)))));
         return;
       }
       const parts = this.parts(), screens = d.screens || [], words = d.transcript || [], out = [];
@@ -603,11 +628,14 @@
     // ---- Ask
     renderAskTop() {
       const d = this.doc, chips = [];
-      if (d.transcript && d.transcript.length) for (const q of d.questions || []) chips.push(h("button", { class: "chip", onclick: () => this.ask(q) }, q));
+      const asks = (d.questions || []).length ? d.questions : SRC ? ASK_FIRST : [];
+      if (d.transcript && d.transcript.length) for (const q of asks) chips.push(h("button", { class: "chip", onclick: () => this.ask(q) }, q));
       if ((d.terms || []).length) chips.push(h("button", { class: "chip local", onclick: () => this.showTerms() }, "Key terms"));
       if ((d.screens || []).length) chips.push(h("button", { class: "chip local", onclick: () => this.showScreens() }, "What's on screen"));
       this.el.askTop.replaceChildren(
-        h("p", { class: "note" }, "Ask in any language. Jev finds the moments that answer you, Mercury explains them in plain English, and Jev checks each sentence against what was said; anything the video doesn't say is kept apart as background. Your questions are saved with the video."),
+        h("p", { class: "note" }, SRC
+          ? "Ask in any language. Your question goes to the chat with the second you're at, and your AI answers there from this video's words and frames."
+          : "Ask in any language. Jev finds the moments that answer you, Mercury explains them in plain English, and Jev checks each sentence against what was said; anything the video doesn't say is kept apart as background. Your questions are saved with the video."),
         chips.length ? h("div", { class: "chips" }, chips) : null);
     }
 
@@ -616,6 +644,15 @@
       if (!q || this.asking) return;
       this.show("ask");
       this.el.q.value = "";
+      if (SRC) {
+        const sent = bot(h("p", { class: "muted" }, "Sent to the chat: your AI answers there."));
+        this.el.qa.append(h("div", { class: "me" }, q), sent);
+        this.scrollAsk();
+        const at = this.now() ?? this.roAt;
+        try { await SRC.ask(this.key, q, at, this.doc.video && this.doc.video.title); }
+        catch (e) { sent.replaceWith(bot(h("p", { class: "msg" }, `The app didn't take the question (${e.message}). Ask it in the chat instead.`))); }
+        return;
+      }
       const wait = bot(h("span", { class: "dots" }, h("i"), h("i"), h("i")));
       this.el.qa.append(h("div", { class: "me" }, q), wait);
       this.scrollAsk();
@@ -655,8 +692,9 @@
 
     screenCard(sc) {
       const lines = sc.text.split("\n").filter(Boolean).slice(0, 3).join(" · ");
-      return h("figure", { class: "screen", onclick: () => this.seek(sc.t) },
-        h("img", { src: sc.img, alt: lines, loading: "lazy" }), h("figcaption", {}, h("span", { class: "t" }, clock(sc.t)), lines));
+      const img = this.pic(sc.t, sc.img);
+      img.alt = lines;
+      return h("figure", { class: "screen", onclick: () => this.seek(sc.t) }, img, h("figcaption", {}, h("span", { class: "t" }, clock(sc.t)), lines));
     }
 
     scrollAsk() {
@@ -668,6 +706,11 @@
     // ---- playing
     mountPlayer() {
       const v = this.doc.video, box = this.el.player;
+      if (v.file && SRC) {  // a file stays on the computer; inside the app the page has its pictures and words
+        const first = (this.doc.scenes || []).find(s => s.kind === "new");
+        box.replaceChildren(h("div", { class: "poster file" }, this.pic(first ? first.start : 0), h("span", {}, "A video file plays on your computer")));
+        return;
+      }
       if (v.file) {
         this.video = h("video", { src: `/media/${this.key}/video`, controls: true, preload: "metadata", playsinline: true });
         box.replaceChildren(this.video);
@@ -683,13 +726,15 @@
           // 101/150: the owner doesn't allow playback on other sites; times open on YouTube instead
           events: { onError: e => { if ([100, 101, 150, 153].includes(e.data)) this.noEmbed(); } },
         });
-      });
+      }, () => { if (this.alive) this.noEmbed(); });
     }
 
     noEmbed() {
       const v = this.doc.video;
       this.player = null;
-      this.el.player.replaceChildren(h("a", { class: "poster", href: `https://www.youtube.com/watch?v=${v.yt}`, target: "_blank", rel: "noopener" },
+      const href = `https://www.youtube.com/watch?v=${v.yt}`;
+      this.el.player.replaceChildren(h("a", { class: "poster", href, target: "_blank", rel: "noopener",
+                                              onclick: e => { if (SRC) { e.preventDefault(); SRC.open(href); } } },
         h("img", { src: `https://i.ytimg.com/vi/${v.yt}/hqdefault.jpg`, alt: "" }), h("span", {}, "Watch on YouTube ↗")));
     }
 
@@ -708,7 +753,8 @@
       if (this.video) { this.video.currentTime = t; this.video.play().catch(() => {}); }
       else if (this.player && this.player.seekTo) { this.player.seekTo(t, true); this.player.playVideo(); }
       else if (this.doc && this.doc.video && this.doc.video.yt) {
-        window.open(`https://www.youtube.com/watch?v=${this.doc.video.yt}&t=${Math.floor(t)}s`, "_blank", "noopener");
+        const url = `https://www.youtube.com/watch?v=${this.doc.video.yt}&t=${Math.floor(t)}s`;
+        if (SRC) SRC.open(url); else window.open(url, "_blank", "noopener");
       }
       this.follow(t, true);
     }
@@ -800,9 +846,12 @@
       let i = F.findLastIndex(f => f[0] <= t + 0.01);
       if (i < 0) i = 0;
       const f = F[i], sh = f && (d.sheets || [])[f[1]];
-      if (!sh) { el.style.display = "none"; return; }
+      const url = sh && (SRC ? SRC.sheet(this.key, f[1], () => this.readout(this.roAt || 0)) : sh.url);
+      if (!url) { el.style.display = "none"; el.dataset.at = ""; return; }
+      if (el.dataset.at === String(i)) return;  // the same frame: a sheet sent as data is long to set again
+      el.dataset.at = String(i);
       Object.assign(el.style, {
-        display: "", width: `${f[4] * scale}px`, height: `${f[5] * scale}px`, backgroundImage: `url("${sh.url}")`,
+        display: "", width: `${f[4] * scale}px`, height: `${f[5] * scale}px`, backgroundImage: `url("${url}")`,
         backgroundSize: `${sh.w * scale}px ${sh.h * scale}px`, backgroundPosition: `-${f[2] * scale}px -${f[3] * scale}px`,
       });
     }
@@ -823,5 +872,6 @@
     }
   }
 
-  api("/api/me").then(me => { ME = me; }, () => {}).finally(route);
+  if (SRC) SRC.start(key => { view = new Watch(key); }, () => { if (view) view.stop(); });
+  else api("/api/me").then(me => { ME = me; }, () => {}).finally(route);
 })();

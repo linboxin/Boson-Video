@@ -40,7 +40,9 @@ args = ["boson-video", "mcp"]
 
 Then ask your AI about any YouTube link. It opens the video, reads the transcript, looks at the
 frames that matter at full resolution, searches, and checks its claims, citing every moment. No
-keys needed. Everything runs on your computer. Details: [docs/plugin.md](https://github.com/linboxin/Boson-Video/blob/main/docs/plugin.md).
+keys needed. Everything runs on your computer. In apps that show interactive pages (Claude Desktop,
+claude.ai, ChatGPT, Cursor), the video's page opens right in the chat: the player, the ribbon, the
+transcript with English beneath, terms and scenes, and questions you ask there go to your AI. Details: [docs/plugin.md](https://github.com/linboxin/Boson-Video/blob/main/docs/plugin.md).
 
 ## Run the page
 
