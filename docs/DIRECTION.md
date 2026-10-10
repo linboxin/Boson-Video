@@ -18,7 +18,7 @@ plugin, or our own page.
 - **The document is the product, with two ways in.** The website: anyone pastes a video link
   and reads it. The plugin: any AI or agent (Claude, ChatGPT, Cursor, Codex, Grok) connects
   and reads the same document. Scene detection, transcripts and models exist to feed it.
-- **It works with no keys.** Someone who can't pay for Jev or a writing model still gets the
+- **It works with no keys.** Someone who can't pay for Jev (TypeSafe's checking model) or a writing model still gets the
   document and the plugin; their own AI does the writing. Keys make it sharper, not possible.
 - **Cost follows states, not runtime.** Visual complexity K is the number of distinct
   pictures, not the length in seconds. Speech complexity S is the words, not the silence.

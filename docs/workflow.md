@@ -5,6 +5,10 @@ adding to a single document, `timeline.json`. The product page, the website and 
 read that document. Only the first stage is required. When a later stage can't run (no key,
 YouTube refuses, no OCR), the document goes on without it and says why.
 
+Two stages use optional models: a **writer** (Mercury, from Inception, by default, or any
+OpenAI-compatible model) and a **checker** (Jev, from TypeSafe). Without their keys those stages
+are skipped, and the page says so.
+
 ```mermaid
 flowchart LR
   IN["YouTube link<br/>or video file"] --> S1["1 · Scenes<br/>storyboards or keyframes"]
@@ -27,9 +31,9 @@ flowchart LR
 | 2 | **Words** | The audio (yt-dlp, 16 kHz, cut at pauses into up to 8 pieces) → passages, each with its start and end | Apple's transcriber on a Mac; SenseVoice (Chinese) or Parakeet (English) elsewhere | 7–31 s for 15–60 min on the Mac; 10–77 s on a 12-thread laptop | The page keeps its scenes and says there are no words |
 | 3 | **Screen** | Full-resolution frames at every new visual and build step (one second each, read from the stream by ffmpeg) → the text on screen; burned-in subtitles kept apart; a build step keeps only the lines it adds | RapidOCR, in its own process | 15–90 s | Thumbnails instead, and the reason is printed (for example, YouTube answered 403) |
 | — | **Moments** | Scenes, words and screen text → moments: one span coded *state*, *delta*, *trajectory* or *seek*, with its words, its new lines and its frame | Code (`moments.py`), rebuilt on every save | Instant | Not needed: built from whatever is there |
-| 4 | **Write and study** | The transcript, the chapters, and names from the title, the description and the screen → a summary whose every sentence cites its passages; English for every passage; a glossary and starter questions (all three at once) | Mercury, strict JSON, one retry | 5–40 s | No writing key: no summary, and the page says so |
-| 5 | **Check** | Each summary sentence against the passages it cites and their neighbours → ✓, ? or ✗, with the checker named. Numbers are compared by value in code; each question is asked in both option orders | Jev, plus code | About 1 s | No Jev key: numbers only, labelled "code" |
-| Ask | **On demand** | A question → the passages that answer it, a plain explanation citing them, each sentence checked, background kept apart, the frames attached | Jev finds, Mercury explains, Jev checks | 2–6 s | No keys: search still works |
+| 4 | **Write and study** | The transcript, the chapters, and names from the title, the description and the screen → a summary whose every sentence cites its passages; English for every passage; a glossary and starter questions (all three at once) | The writer (Mercury by default), strict JSON, one retry | 5–40 s | No writing key: no summary, and the page says so |
+| 5 | **Check** | Each summary sentence against the passages it cites and their neighbours → ✓, ? or ✗, with the checker named. Numbers are compared by value in code; each question is asked in both option orders | The checker (Jev), plus code | About 1 s | No Jev key: numbers only, labelled "code" |
+| Ask | **On demand** | A question → the passages that answer it, a plain explanation citing them, each sentence checked, anything the video doesn't say marked as background, the frames attached | Jev finds, Mercury explains, Jev checks | 2–6 s | No keys: search still works |
 
 All times come from [measured.md](measured.md). They depend on the video, the machine and the
 connection.

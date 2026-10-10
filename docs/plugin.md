@@ -3,7 +3,7 @@
 `boson-video mcp` is an MCP server, the standard Claude Code, Claude Desktop, Cursor and Codex
 use for tools. Your AI opens a video, reads the transcript, looks at the frames that matter at
 full resolution, searches, and checks a claim before stating it. It works with no keys; your
-AI does the writing. With `TYPESAFE_API_KEY`, checks come from Jev and search adds Jev's pick.
+AI does the writing. With `TYPESAFE_API_KEY`, the checker (Jev, from TypeSafe) also judges claims by meaning, and search adds its pick of the passage that answers.
 
 | Tool | What your AI gets |
 | --- | --- |

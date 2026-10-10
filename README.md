@@ -11,7 +11,7 @@ from, and questions are answered from the video and checked against it.
 - **The ribbon:** the whole video on one strip (scenes, chapters, most replayed). Hover to see any second's frame and words.
 - **Summary:** sections with their frames; every sentence timed and checked (✓ ? ✗).
 - **Transcript:** the original with English beneath, technical terms explained, on-screen text read in.
-- **Ask:** answers that cite their moments and show the frames, with background kept apart.
+- **Ask:** answers that cite their moments and show the frames; anything the video doesn't say is marked as background.
 - **Your own AI:** the same document as an MCP plugin for Claude, Cursor, Codex and more.
 
 Built for long talks, lectures and finance videos in a language you half know (Chinese and English today).
@@ -50,13 +50,18 @@ transcript with English beneath, terms and scenes, and questions you ask there g
 uvx boson-video web             # http://127.0.0.1:8770; the first run prints your invite code
 ```
 
-Keys make it fuller: `INCEPTION_API_KEY` (Mercury writes the summary, the English and the terms)
-and `TYPESAFE_API_KEY` (Jev checks every sentence and answers questions). Put them in a `.env` file in
-the folder you start from, or in `~/.boson-video/.env`; the server warns at start when one is missing.
-Without them you still get the scenes, the transcript and search. Any OpenAI-compatible model can
-write instead of Mercury: set `BOSON_WRITER_BASE_URL`, `BOSON_WRITER_MODEL` and `BOSON_WRITER_API_KEY`.
-Optional and off by default: with `OPENAI_API_KEY` and `BOSON_SCREEN_CHECK=1`, a sentence the words can't
-confirm gets a second look at the frames on screen (OpenAI's Decisions API, about a cent a video).
+Two optional models make it fuller. Without their keys you still get the scenes, the transcript and search.
+
+- **A writer** writes the summary, the English and the terms: [Mercury](https://www.inceptionlabs.ai) from
+  Inception by default (`INCEPTION_API_KEY`), or any OpenAI-compatible model (`BOSON_WRITER_BASE_URL`,
+  `BOSON_WRITER_MODEL`, `BOSON_WRITER_API_KEY`).
+- **A checker** checks every sentence against what was said and finds the moments that answer a
+  question: [Jev](https://docs.typesafe.ai) from TypeSafe (`TYPESAFE_API_KEY`).
+
+Put the keys in a `.env` file in the folder you start from, or in `~/.boson-video/.env`; the server says
+at start which one is missing. Off by default: with `OPENAI_API_KEY` and `BOSON_SCREEN_CHECK=1`, a sentence
+the words can't confirm is also checked against the frames on screen (OpenAI's Decisions API, about a
+cent a video).
 
 ## Tested videos
 
@@ -67,7 +72,7 @@ SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](https://githu
 | --- | --- | --- | --- | --- | --- | --- |
 | Money or Life 美股频道, Meta and AI (zh, talking head) | 24:53 | 1.3 s | 13.8 s (Mac) | no human captions | — | 13 / 13 |
 | Money or Life 美股频道, AI drug discovery (zh, slides) | 28:24 | 1.1 s | 18.5 s (Mac) | not scored | 36 moments read | 15 / 16 |
-| 程序员老王, LLM abliteration (zh, animated diagrams) | 11:35 | — | 10.0 s (Windows) | not scored | 88 moments; subtitles apart at 85 | 21–22 / 22–23 (several runs) |
+| 程序员老王, LLM abliteration (zh, animated diagrams) | 11:35 | — | 10.0 s (Windows) | not scored | 88 moments; burned-in subtitles told apart at 85 | 21 of 22 to 22 of 23 (several runs) |
 | 陳永儀, TEDxTaipei (zh, talk) | 14:29 | — | 7.1 s (Mac) | 5.3% chars (Mac), 4.8% (SenseVoice) | — | 14 / 14 |
 | Ken Robinson, TED (en, talk) | 20:06 | — | 9.9 s (Mac) | 10.0% words (Mac), 10.5% (Parakeet) | — | 22 / 25 |
 | Sean's AI Stories, agent observability (en, screen recording) | 20:48 | 1.5 s | 13.2 s (Mac) | not scored | none: YouTube refused full resolution | 23 / 26 |
@@ -75,7 +80,7 @@ SenseVoice or Parakeet on the CPU. Full tables: [docs/measured.md](https://githu
 | Rick Astley, Never Gonna Give You Up (fast cuts) | 3:33 | 0.7 s | — | — | — | — |
 
 ¹ Against human captions (`scripts/accuracy.py`); about half the English errors are filler words the captions leave out.
-Summary ✓: sentences confirmed against what was said (Jev and code).
+Summary ✓: summary sentences the checker confirmed against what was said (Jev, with numbers compared in code).
 
 ## Command line
 
