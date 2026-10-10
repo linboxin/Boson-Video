@@ -18,31 +18,19 @@ Built for long talks, lectures and finance videos in a language you half know (C
 
 ## In your own AI
 
-One line, nothing else to install ([uv](https://docs.astral.sh/uv/) runs it):
+In Claude Code, one line ([uv](https://docs.astral.sh/uv/) runs it; nothing else to install):
 
 ```bash
 claude mcp add boson-video -- uvx boson-video mcp
 ```
 
-Claude Desktop (`claude_desktop_config.json`) or Cursor (`.cursor/mcp.json`):
+Claude Desktop, Cursor and Codex take the same command, `uvx boson-video mcp`, in their MCP settings;
+claude.ai and ChatGPT need a web address instead: [setup for each app](https://github.com/linboxin/Boson-Video/blob/main/docs/plugin.md#install).
 
-```json
-{ "mcpServers": { "boson-video": { "command": "uvx", "args": ["boson-video", "mcp"] } } }
-```
-
-Codex (`~/.codex/config.toml`):
-
-```toml
-[mcp_servers.boson-video]
-command = "uvx"
-args = ["boson-video", "mcp"]
-```
-
-Then ask your AI about any YouTube link. It opens the video, reads the transcript, looks at the
-frames that matter at full resolution, searches, and checks its claims, citing every moment. No
-keys needed. Everything runs on your computer. In apps that show interactive pages (Claude Desktop,
-claude.ai, ChatGPT, Cursor), the video's page opens right in the chat: the player, the ribbon, the
-transcript with English beneath, terms and scenes, and questions you ask there go to your AI. Details: [docs/plugin.md](https://github.com/linboxin/Boson-Video/blob/main/docs/plugin.md).
+Then paste a YouTube link and ask. Your AI opens the video, reads the transcript, looks at the frames
+that matter at full resolution, and checks its claims, citing every moment. No keys needed, and
+everything runs on your computer. In apps that show interactive pages (Claude Desktop, claude.ai,
+ChatGPT, Cursor), the video's page opens right in the chat, and questions you ask there go to your AI.
 
 ## Run the page
 
