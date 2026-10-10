@@ -86,6 +86,7 @@ From a clone: `uv sync`, then `uv run boson-video …`; `uv run pytest` runs the
 - [docs/how-it-works.md](https://github.com/linboxin/Boson-Video/blob/main/docs/how-it-works.md): the pipeline, what YouTube allows, limits
 - [docs/DIRECTION.md](https://github.com/linboxin/Boson-Video/blob/main/docs/DIRECTION.md): what we're building, milestones, decisions
 - [docs/timeline-format.md](https://github.com/linboxin/Boson-Video/blob/main/docs/timeline-format.md): the document format, for other tools
+- [CONTRIBUTING.md](https://github.com/linboxin/Boson-Video/blob/main/CONTRIBUTING.md): how to set up, test and propose a change
 - [AGENTS.md](https://github.com/linboxin/Boson-Video/blob/main/AGENTS.md): the guide for coding agents
 
 MIT licensed. YouTube's terms don't allow automated access for products, so everything that touches
