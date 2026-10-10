@@ -1,7 +1,7 @@
 # Boson-Video: guide for coding agents
 
 Read any video like a document. **Read [docs/DIRECTION.md](docs/DIRECTION.md) first.** It
-holds the agreed direction, the milestones, who does what, and the owner's open
+holds the agreed direction, the milestones, who does what, and the open
 decisions. The target screen is [docs/read-view.html](docs/read-view.html); open it in a
 browser.
 
@@ -50,12 +50,12 @@ browser.
 - `render.py`: the self-contained read view (ribbon, summary with language switch, search, scenes); a little JS, no libraries
 - `pipeline.py`: `build` (scenes), `add_words` (speech), `add_summary` (write + check), with per-stage timings · `cli.py`: entry point
 - `timeline.py`: the shared data model; `timeline.json` is the contract between stages and for other tools, versioned, spec in `docs/timeline-format.md`
-- `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design); `deploy.md`: how the owner hosts it (Dockerfile, Coolify, the Vercel address), kept out of the README
+- `docs/`: `DIRECTION.md` (source of truth) and `read-view.html` (target design); `deploy.md`: how the hosted version runs (Dockerfile, Coolify, the Vercel address), kept out of the README
 
 ## Rules
 
 - Follow `docs/DIRECTION.md`: build the next milestone, respect "Not now", and update the
-  milestone table when work lands. Don't change the direction without the owner.
+  milestone table when work lands. Don't change the direction on your own: propose it in an issue and wait for the maintainers.
 - Speed is the product. Time every stage (`Stopwatch` in `pipeline.py`) and update the
   measured tables in `docs/measured.md` when numbers move. Say which numbers are measured and which
   are estimates.
@@ -73,7 +73,7 @@ browser.
   (Mercury). Never commit keys.
 - Don't try to get around YouTube's bot checks (PO tokens, player API clients). The
   Chrome extension is the route for that.
-- Ask the owner before downloading models or media onto the owner's machines. `docs/DIRECTION.md` lists what is pending.
+- Ask the person you're working for before downloading models or media onto their machine. `docs/DIRECTION.md` lists what has been approved.
   (On a user's computer the plugin downloads its speech model on first use and says so: that is the product.)
 - Publishing: `uv build`, then `uv publish` (PyPI) and `mcp-publisher publish` (the registry, from `server.json`).
   Keep the version the same in `pyproject.toml`, `src/boson_video/__init__.py` and `server.json`.

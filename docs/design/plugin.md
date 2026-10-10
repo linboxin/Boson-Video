@@ -1,7 +1,7 @@
 # Milestone 4: the plugin (design)
 
-2026-10-04. Direction: [DIRECTION.md](../../DIRECTION.md), milestone 4. Shape chosen by
-Claude under the owner's hand-off: a briefing on open, then tools to drill down.
+2026-10-04. Direction: [DIRECTION.md](../DIRECTION.md), milestone 4. The shape: a briefing on
+open, then tools to drill down.
 
 ## Goal
 
@@ -64,4 +64,4 @@ One request, so no added wait.
 
 Offline tests for each unit with fake Jev and fake Mercury replies; a smoke script that runs
 the real MCP server over stdio and calls every tool; one run from Claude Code on
-`qbReD1cGykQ`. Cursor is left for the owner to try with the config in the README.
+`qbReD1cGykQ`. Cursor is still to be tried, with the config in the README.

@@ -1,6 +1,6 @@
-# Deploying (owner's notes)
+# Deploying the hosted version
 
-How the owner runs the hosted product. Users don't need any of this: they use the site, or run it
+How the hosted product is run. Users don't need any of this: they use the site, or run it
 on their own computer with `uv run boson-video web`.
 
 The `Dockerfile` runs the site in uploads-only mode (YouTube downloads stay on the user's side).

@@ -1,9 +1,9 @@
 # Boson-Video direction
 
-Agreed with the owner on 2026-10-02 and revised with the owner on 2026-10-04 (the plugin
-direction) and on 2026-10-05 (cost follows states; the moment). Read this before building
-anything. Keep the milestone table current as work lands; change the direction itself only
-with the owner.
+Agreed on 2026-10-02 and revised on 2026-10-04 (the plugin direction) and on 2026-10-05 (cost
+follows states; the moment). Read this before building anything. Keep the milestone table
+current as work lands; propose changes to the direction itself in an issue, and change it only
+once the maintainers agree.
 
 ## What we are building
 
@@ -13,8 +13,8 @@ Any AI then works from that document: the user's own Claude, ChatGPT or Cursor t
 plugin, or our own page.
 
 - **For:** people who learn from long videos in a language they only half know: tech talks,
-  lectures, finance commentary. They reach it through the AI they already use. The first
-  user is the owner (Chinese technical and finance videos).
+  lectures, finance commentary. They reach it through the AI they already use. It was built
+  first for Chinese technical and finance videos.
 - **The document is the product, with two ways in.** The website: anyone pastes a video link
   and reads it. The plugin: any AI or agent (Claude, ChatGPT, Cursor, Codex, Grok) connects
   and reads the same document. Scene detection, transcripts and models exist to feed it.
@@ -73,8 +73,7 @@ Three layers, each with one job:
    opens once the scene map is ready (seconds) and fills in as the words, the screen and the
    summary arrive. It runs on the user's computer, so YouTube downloads stay on their side; a
    hosted version waits for the Chrome extension (milestone 9). Each video's page: target design
-   [read-view.html](read-view.html), also published at
-   https://claude.ai/artifact/4KTYhto8fKhLPptrokXyUn (owner-only). The ribbon (the whole video
+   [read-view.html](read-view.html) (open it in a browser). The ribbon (the whole video
    on one strip: most-replayed curve, scene changes, chapters), the summary with every
    sentence linked and checked, the transcript line by line with English beneath and terms
    glossed, and the ask box (`boson-video serve`). Later the layout follows the kind of video
@@ -85,7 +84,7 @@ Three layers, each with one job:
    readout on one side; Summary, Transcript, Terms, Scenes and Ask in tabs on the other, in the
    original, both or English. On a server, uploads work and YouTube links come through the
    browser extension (milestone 9). Items 2 and 3 were built in parallel on 2026-10-06 and do
-   the same job; which one stays is the owner's call.
+   the same job; which one stays is still open.
 
 Layouts by kind of video, for later:
 
@@ -124,7 +123,7 @@ Layouts by kind of video, for later:
 | 3 | Read view: sections written and checked, ask box, ribbon | Done, 2026-10-02 | Works on all four test videos: live ribbon, summary in the video's language with an English switch, every sentence checked, in-page search, `boson-video ask` |
 | 3b | Learn from it: video beside the page, transcript with English beneath, terms glossed and explained, asking in the page, questions saved; SenseVoice off the Mac | Done, 2026-10-04 | `qbReD1cGykQ` (11:35) and `slFa9Vx3crw` (35:04) on Windows: words in 10 s and 25 s, full page in about 20 s and 50 s (audio cached) |
 | 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried). Packaged 2026-10-08: `uvx boson-video mcp` on a fresh machine, no Node, ffmpeg or keys; published the same day: PyPI `boson-video` 0.2.0 and the MCP Registry (`io.github.linboxin/boson-video`, active); the repo is public, MIT. 2026-10-10: the video's page in the chat (MCP Apps), checked in a stand-in host and headless Chrome, not yet in Claude Desktop, claude.ai, ChatGPT or Cursor | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
-| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (owner, 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
+| 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (decided 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
 | 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | In progress, 2026-10-07: runs on this computer (`boson-video web`), checked on three videos at desktop and phone size; hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 9) |
 | 7 | **Moment:** one object joins the words, the picture code, the new lines, and the frame; the four codes (state, delta, trajectory, seek) | Done, 2026-10-06 (the summary still cites passages, not moments: next) | `qbReD1cGykQ`: 90 moments (22 state, 44 delta, 24 trajectory: its animated chat demos and diagrams). KL = 2.71, shown and never said, comes back as the delta at 9:15 with its frame. Search, check, frame captions and the page cite that same moment. On six videos, a run of changes with no text on screen (a speaker at a podium) stays state and delta; `slFa9Vx3crw`'s scrolled article (21:50–23:20) is a trajectory, "better watched than read" |
@@ -139,7 +138,7 @@ Layouts by kind of video, for later:
   through the plugin. Inside Boson-Video, loops stay small and bounded (look again when a
   check fails).
 - **Apple's on-device transcriber** (SpeechAnalyzer) makes the transcripts on a Mac: 80× real
-  time in one stream and about 200× with the audio cut into 8 pieces on the owner's M5.
+  time in one stream and about 200× with the audio cut into 8 pieces on an M5 MacBook.
 - **SenseVoice** (through sherpa-onnx) makes them elsewhere for Chinese and other non-English
   speech: 4.8% character errors on the Mandarin TEDx talk; 11:35 in 10 s and 35 minutes in 25 s
   on a 12-thread Windows laptop (CPU).
@@ -203,29 +202,27 @@ predictions and whether they came true, depend on rights we don't have yet.
 Accounts, a mobile app, live streams, sites other than YouTube, and downloading YouTube
 videos on our servers (bot checks and other people's rights).
 
-## Decisions (owner)
+## Decisions
 
 - 2026-10-02: downloads for milestone 2 approved: yt-dlp (from PyPI) and Apple's Chinese
   speech model. Test-video audio stays in `out/`, which git ignores.
 - 2026-10-02: summaries are written in the video's language, with a one-click switch to
   English.
-- 2026-10-04: product first. The owner learns from Chinese technical videos and needs the
-  terms explained and questions answered, so milestone 3b (learning) came before layouts.
+- 2026-10-04: product first. Learning from Chinese technical videos needs the terms explained
+  and questions answered, so milestone 3b (learning) came before layouts.
 - 2026-10-04: downloads approved for the Windows PC: ffmpeg (scoop), SenseVoice int8 and the
   Silero voice detector (sherpa-onnx, about 165 MB in ~/.cache/boson-video/models).
-- 2026-10-04: **the plugin direction.** The owner can't run everyone on his own Jev and
-  writing model, so the engine runs without keys and people plug it into their own AI. The
-  owner first, then people who can't pay. Plugin before layouts.
+- 2026-10-04: **the plugin direction.** One project can't pay for everyone's Jev and writing
+  model, so the engine runs without keys and people plug it into their own AI. Our own use
+  first, then people who can't pay. Plugin before layouts.
 - 2026-10-04: full-resolution frames approved: yt-dlp fetches only the needed seconds of
   video, at the moments the scene map picks; thumbnails remain the fallback.
 - 2026-10-04: a hosted plugin is fine, as long as YouTube downloads happen on the user's side
   (their computer or their browser) or the video is the user's own file.
-- 2026-10-04: the owner handed all four follow-ups to Claude ("you should handle it all"),
-  which covers the two downloads they needed: Parakeet for English (about 480 MB) and an OCR
-  model for screen text.
-- 2026-10-04: the plugin's shape: a briefing on open, then tools to drill down (chosen by
-  Claude under the owner's hand-off; the owner can overturn it).
-- 2026-10-05: **cost follows states.** The owner adopted the complexity claim: sharp work is
+- 2026-10-04: the four follow-ups go ahead, with the two downloads they need: Parakeet for
+  English (about 480 MB) and an OCR model for screen text.
+- 2026-10-04: the plugin's shape: a briefing on open, then tools to drill down.
+- 2026-10-05: **cost follows states.** We adopted the complexity claim: sharp work is
   on the order of K + S, not a frame per second. The moment is the next structural milestone,
   ahead of bring-your-own-model. A picture span is one of four codes: state, delta,
   trajectory, seek. The library and other verticals stay later, after one lecture can be
@@ -233,15 +230,15 @@ videos on our servers (bot checks and other people's rights).
 - 2026-10-06: **two products, one document.** The website is a product in its own right:
   anyone pastes a video link and reads it. The plugin is the same document for any AI or agent
   that connects. The website runs on the user's computer (`boson-video serve`) because YouTube
-  downloads stay on the user's side; a hosted website waits for the Chrome extension. The owner's
-  stop point ("Where people stop", above) is the product's test.
+  downloads stay on the user's side; a hosted website waits for the Chrome extension. The stop
+  point ("Where people stop", above) is the product's test.
 - 2026-10-06: **product first.** An invite-only web version comes before milestone 5: invite
   codes, no accounts; videos come in as YouTube links or uploaded files (on a server, YouTube
   links come through the extension, milestone 9, as decided on 2026-10-04). It is built as
   `boson-video web`, beside the paste-a-link website `boson-video serve` above.
 - 2026-10-09: **Mercury stays the writer** (it is the cheapest), and the harness must make any model
   write well, so a better model later makes the page better without code changes; nothing in the
-  code is tied to one vendor. Summaries are judged by measurement and by the owner, blind.
+  code is tied to one vendor. Summaries are judged by measurement and by people reading them blind.
 - 2026-10-10: **the page in the chat.** Someone who connects only the plugin shouldn't see the
   video only as text, and what they see should be interactive. So the plugin shows the product
   page itself in the chat through MCP Apps (everything the web page shows, not only the player),
@@ -249,7 +246,7 @@ videos on our servers (bot checks and other people's rights).
 - 2026-10-08: **publish the plugin; the repo goes public, MIT licensed.** "Just connect" means
   the installed plugin first (`uvx boson-video mcp`, listed in the MCP Registry as
   `io.github.linboxin/boson-video`): it runs on the user's computer, so YouTube works and it costs
-  the owner nothing. The connect-by-address plugin for web apps follows the extension and accounts.
+  the project nothing. The connect-by-address plugin for web apps follows the extension and accounts.
 - 2026-10-06: a new interface for it: simple, no product name on the page, not packed;
   chat-based, answering with good-looking output. Making the plugin show visuals inside
   ChatGPT and Grok comes later.
@@ -264,7 +261,7 @@ videos on our servers (bot checks and other people's rights).
   in 17 s on first use and an 11:35 Chinese video had its words in 24.1 s; the plugin told the AI
   it was a one-time wait. The test found one first-run bug (the home folder didn't exist yet) and
   it is fixed.
-- The static ffmpeg build on the owner's Mac finds no certificates of its own, so reading
+- The static ffmpeg build on the test Mac finds no certificates of its own, so reading
   YouTube's stream failed ("certificate verify failed") and every frame quietly fell back to a
   thumbnail: no screen text on the Mac until `frames.py` handed it certifi's bundle (2026-10-06).
 
@@ -280,7 +277,7 @@ videos on our servers (bot checks and other people's rights).
   chart, table and post shown again), so skipping them loses nothing. On `qbReD1cGykQ` the
   "changes" inside a scene are real build steps of animated diagrams (89 frames in 11.6 min),
   and the video has Chinese subtitles burned into the picture.
-- Apple's transcriber on the owner's M5: about 200× real time with the audio cut at
+- Apple's transcriber on an M5 MacBook: about 200× real time with the audio cut at
   pauses into 8 pieces. Mandarin is good; English names inside Chinese speech come out
   garbled ("Money or Life" → "Monelife"). Hint words (`AnalysisContext.contextualStrings`)
   changed nothing, so the writer gets the names from the title and description

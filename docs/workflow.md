@@ -73,8 +73,8 @@ Each stage reads the document and writes it back. Stages share nothing else.
 | `boson-video mcp` | Any AI or agent | Tools for a briefing on open, read, frames, search, check and list. Needs no keys. Runs over stdio or HTTP |
 | `boson-video <video>` | The command line | Runs every stage and prints each one's time |
 
-`web` and `serve` were built in parallel and do the same job; which one stays is the owner's
-call ([DIRECTION.md](DIRECTION.md)).
+`web` and `serve` were built in parallel and do the same job; which one stays is still
+open ([DIRECTION.md](DIRECTION.md)).
 
 ## Design rules
 
