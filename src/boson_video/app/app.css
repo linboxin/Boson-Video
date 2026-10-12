@@ -103,6 +103,7 @@ input { font: inherit; color: inherit; }
 .gate input::placeholder { letter-spacing: normal; text-transform: none; }
 .home { max-width: 640px; margin: 0 auto; padding: 18vh 16px 64px; display: grid; gap: 12px; }
 .home h1 { font-size: 27px; font-weight: 600; letter-spacing: -.01em; margin: 0 0 10px; text-align: center; }
+.upload-main { display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; padding: 16px 24px; background: var(--fg); color: var(--bg); font-weight: 600; }
 .hint { margin: 0; color: var(--faint); font-size: 13px; text-align: center; }
 .bar { height: 3px; background: var(--tint); border-radius: 3px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }

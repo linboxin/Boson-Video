@@ -6,9 +6,8 @@ signed cookie) and is counted against a daily limit of new videos and of questio
 sees the videos it opened. Videos are built in the background by jobs.py into BOSON_VIDEO_HOME,
 the same home as the command line and the plugin.
 
-`--hosted` is for a server: YouTube links are refused there, because YouTube downloads stay on the
-user's side (docs/DIRECTION.md); uploads still work, and videos already built can be read. The
-interface is app/index.html, app/app.css and app/app.js: plain JS, no libraries.
+`--hosted` processes uploaded files with the same Boson engine. It never downloads YouTube;
+already-built YouTube documents remain readable. See docs/deploy.md for hosting.
 """
 
 from __future__ import annotations
@@ -22,12 +21,13 @@ import re
 import secrets
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
-from starlette.requests import Request
+from starlette.requests import ClientDisconnect, Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
@@ -46,8 +46,10 @@ _KEY = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _FRAME = re.compile(r"^\d+(-thumb)?\.jpg$")
 _SHEET = re.compile(r"^\d+\.jpg$")
 _lock = threading.Lock()  # invites, per-code state and notes are written one at a time
-_cache: dict[str, tuple[float, Timeline, list[dict]]] = {}  # key → (mtime, document, sheet sizes)
-_tries: dict[str, list[float]] = {}  # invite attempts per address, against guessing
+_cache: dict[Path, tuple[float, Timeline, list[dict]]] = {}  # path → (mtime, document, sheet sizes)
+_tries: dict[str, list[float]] = {}  # wrong invite codes per address, against guessing
+GUESSES = 20  # wrong codes an address may try in 10 minutes
+ALL_GUESSES = 100  # and all addresses together: an address in a forwarded header can be made up
 
 
 # ---- invite codes and what each code has done ---------------------------------------------------
@@ -93,6 +95,7 @@ def _secret(root: Path) -> bytes:
     if not path.exists():
         root.mkdir(parents=True, exist_ok=True)
         path.write_text(secrets.token_urlsafe(32), encoding="utf-8")
+        os.chmod(path, 0o600)
     return path.read_bytes().strip()
 
 
@@ -130,20 +133,32 @@ def _write_json(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)  # a new computer has no home folder yet
     tmp = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.chmod(tmp, 0o600)  # invite codes and what each code did: for this account only
     os.replace(tmp, path)
+
+
+def private(*paths: Path) -> None:
+    """Make files only this account can read (codes and secrets written before files were kept so)."""
+    for path in paths:
+        if path.exists():
+            os.chmod(path, 0o600)
 
 
 def _admit(root: Path, cid: str, info: dict, key: str) -> str | None:
     """Add `key` to this code's videos, counting it if it is a new build; the refusal, if over the limit."""
     with _lock:
         st = state(root, cid)
-        new = not library.exists(key, root) and not jobs.running(key)
+        new = not library.exists(key, root) and not jobs.running(key, root)
         if new and st["built"] >= info.get("per_day", 10):
-            return f"This code has added {st['built']} new videos today, its limit. Videos already here still open."
+            return _over(st)
         st["built"] += new
         st["videos"] = [key] + [k for k in st["videos"] if k != key]
         _save_state(root, cid, st)
     return None
+
+
+def _over(st: dict) -> str:
+    return f"This code has added {st['built']} new videos today, its limit. Videos already here still open."
 
 
 # ---- the document, as the page reads it -----------------------------------------------------------
@@ -157,16 +172,16 @@ def load(root: Path, key: str) -> Timeline | None:
 def cached(root: Path, key: str) -> tuple[float, Timeline, list[dict]] | None:
     """The video and its sheets' sizes (the images stay on disk; the page fetches them). The same page
     inside an AI app (viewer.py) reads it here too."""
-    path = root / key / "timeline.json"
+    path = (root / key / "timeline.json").resolve()
     if not path.exists():
         return None
     mtime = path.stat().st_mtime
-    hit = _cache.get(key)
+    hit = _cache.get(path)
     if hit and hit[0] == mtime:
         return hit
     data = json.loads(path.read_text(encoding="utf-8"))
-    _cache[key] = (mtime, Timeline.from_json(data, []), data.get("sheets", []))
-    return _cache[key]
+    _cache[path] = (mtime, Timeline.from_json(data, []), data.get("sheets", []))
+    return _cache[path]
 
 
 def document(tl: Timeline, key: str, sheets: list[dict] | None = None) -> dict:
@@ -241,8 +256,11 @@ def picture(tl: Timeline, where: Path, t: float) -> Path | None:
         if best:
             return best
     (where / "frames").mkdir(parents=True, exist_ok=True)
-    thumb = where / "frames" / f"{int(t * 1000)}-thumb.jpg"
-    return thumb if thumb.exists() or frames._thumbnail(tl, where, t, thumb) else None
+    # named by the thumbnail's own time, so asking for every millisecond makes one file per thumbnail
+    before = [f for f in tl.frames if f.t <= t + 0.01] or tl.frames[:1]
+    at = before[-1].t if before else t
+    thumb = where / "frames" / f"{int(at * 1000)}-thumb.jpg"
+    return thumb if thumb.exists() or frames._thumbnail(tl, where, at, thumb) else None
 
 
 def notes(where: Path) -> list[dict]:
@@ -294,6 +312,10 @@ async def page(request: Request) -> Response:
     return FileResponse(APP / "index.html", headers=NO_CACHE)
 
 
+async def health(request: Request) -> Response:
+    return JSONResponse({"status": "ok"}, headers=NO_CACHE)
+
+
 async def asset(request: Request) -> Response:
     name = request.path_params["name"]
     if name not in ("app.css", "app.js"):
@@ -306,7 +328,8 @@ async def me(request: Request) -> Response:
     found = who(request)
     if not found:
         return JSONResponse({"in": False, "hosted": hosted})
-    return JSONResponse({"in": True, "hosted": hosted, "videos": cards(request.app.state.root, found[0])})
+    return JSONResponse({"in": True, "hosted": hosted, "upload_max_mb": UPLOAD_MAX // 2**20,
+                         "videos": cards(request.app.state.root, found[0])})
 
 
 async def join(request: Request) -> Response:
@@ -314,12 +337,16 @@ async def join(request: Request) -> Response:
         return bad
     root, ip = request.app.state.root, request.client.host if request.client else "?"
     now = time.time()
-    _tries[ip] = [x for x in _tries.get(ip, []) if now - x < 600] + [now]
-    if len(_tries[ip]) > 20:
+    for addr in list(_tries):  # only the last 10 minutes count, and old addresses go
+        _tries[addr] = [x for x in _tries[addr] if now - x < 600]
+        if not _tries[addr]:
+            del _tries[addr]
+    if len(_tries.get(ip, [])) >= GUESSES or sum(map(len, _tries.values())) >= ALL_GUESSES:
         return _error(429, "Too many tries. Wait a few minutes.")
     code = normal((await _json_body(request)).get("code") or "")
     info = invites(root).get(code)
     if not info or info.get("revoked"):
+        _tries.setdefault(ip, []).append(now)
         return _error(403, "That code doesn't work.")
     response = JSONResponse({"in": True})
     https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
@@ -339,10 +366,10 @@ async def open_link(request: Request) -> Response:
     except YouTubeError:
         return _error(400, "That doesn't look like a YouTube link.")
     if hosted and not library.exists(vid, root):
-        return _error(403, "YouTube videos are added through the browser extension on this site. Upload a video file instead.")
+        return _error(403, "Upload a video file to process it here. New YouTube links need the browser extension, which is not available yet.")
     if refusal := _admit(root, *found, vid):
         return _error(429, refusal)
-    if not hosted:  # on a server, a half-built video stays as it is: finishing it would download from YouTube
+    if not hosted:
         jobs.start(f"https://www.youtube.com/watch?v={vid}", root)
     return JSONResponse({"key": vid})
 
@@ -357,28 +384,47 @@ async def upload(request: Request) -> Response:
     ext = Path(name).suffix.lower()
     if ext not in VIDEO_TYPES:
         return _error(400, f"Upload a video file ({', '.join(sorted(VIDEO_TYPES))}).")
-    if int(request.headers.get("content-length") or 0) > UPLOAD_MAX:
+    try:
+        length = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        return _error(400, "Invalid upload length.")
+    if length < 0:
+        return _error(400, "Invalid upload length.")
+    if length > UPLOAD_MAX:
         return _error(413, f"Videos up to {UPLOAD_MAX // 2**20} MB.")
+    st = state(root, found[0])
+    if st["built"] >= found[1].get("per_day", 10):  # before a byte is saved
+        return _error(429, _over(st))
     folder = root / "uploads"
     folder.mkdir(parents=True, exist_ok=True)
     tmp, digest, size = folder / f".part-{secrets.token_hex(6)}", hashlib.sha256(), 0
-    with tmp.open("wb") as f:
-        async for chunk in request.stream():
-            size += len(chunk)
-            if size > UPLOAD_MAX:
-                break
-            digest.update(chunk)
-            f.write(chunk)
+    try:
+        with tmp.open("wb") as f:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > UPLOAD_MAX:
+                    break
+                digest.update(chunk)
+                f.write(chunk)
+    except ClientDisconnect:
+        tmp.unlink(missing_ok=True)
+        return _error(400, "The upload was interrupted. Try again.")
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     if not 0 < size <= UPLOAD_MAX:
         tmp.unlink(missing_ok=True)
         return _error(413 if size else 400, f"Videos up to {UPLOAD_MAX // 2**20} MB." if size else "The file was empty.")
     key = digest.hexdigest()[:12]  # 12 characters: never a YouTube id, which has 11
     path = folder / f"{key}{ext}"
-    if path.exists():
+    kept = path.exists()
+    if kept:
         tmp.unlink()
     else:
         tmp.replace(path)
     if refusal := _admit(root, *found, key):
+        if not kept:  # refused: the file doesn't stay behind
+            path.unlink(missing_ok=True)
         return _error(429, refusal)
     jobs.start(str(path), root, title=Path(name).stem[:120] or "Video")
     return JSONResponse({"key": key})
@@ -398,24 +444,27 @@ async def video(request: Request) -> Response:
     if isinstance(mine := _mine(request), Response):
         return mine
     root, cid, key = mine
-    status = jobs.status(key, root)
+    status = _shown(jobs.status(key, root))
     hit = await run_in_threadpool(cached, root, key)
     if hit is None:
         return JSONResponse({"key": key, "status": status})
     if _fill_in(request, root, key, hit[1], status):
-        status = jobs.status(key, root)
+        status = _shown(jobs.status(key, root))
     asked = [x for x in notes(root / key) if x.get("by") == cid]
     return JSONResponse({**document(hit[1], key, hit[2]), "status": status, "notes": asked[::-1]})
 
 
+def _shown(status: dict) -> dict:
+    """The build's status as the page sees it: the error, without the Python traceback behind it."""
+    return {k: v for k, v in status.items() if k != "trace"}
+
+
 def _fill_in(request: Request, root: Path, key: str, tl: Timeline, status: dict) -> bool:
     """A video built without a writer (an older copy, the plugin, a missing key) gets its summary,
-    English and terms when opened on a server that has one; only the missing parts are built.
-    On a server, a YouTube video whose screen wasn't read stays as it is: reading it would fetch
-    frames from YouTube."""
+    English and terms when opened on a server that has one; only the missing parts are built."""
     if not (tl.transcript and tl.summary is None and llm.configured()):
         return False
-    if status.get("stage") not in ("done", "missing") or jobs.running(key):
+    if status.get("stage") not in ("done", "missing") or jobs.running(key, root):
         return False
     if request.app.state.hosted and tl.video.id and "screens" not in tl.timings:
         return False
@@ -488,7 +537,20 @@ async def media(request: Request) -> Response:
 
 
 def make_app(root: Path, hosted: bool = False) -> Starlette:
-    app = Starlette(routes=[
+    @asynccontextmanager
+    async def lifespan(app):
+        root.mkdir(parents=True, exist_ok=True)
+        # Fail startup when the volume cannot be written, rather than accepting doomed uploads.
+        probe = root / f".health-{secrets.token_hex(6)}"
+        try:
+            probe.write_text("ready")
+        finally:
+            probe.unlink(missing_ok=True)
+        await run_in_threadpool(jobs.resume, root, hosted)
+        yield
+
+    app = Starlette(lifespan=lifespan, routes=[
+        Route("/healthz", health),
         Route("/", page),
         Route("/v/{key}", page),
         Route("/app/{name}", asset),
@@ -514,7 +576,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--hosted", action="store_true",
-                    help="running on a server: refuse YouTube links (they come through the browser extension)")
+                    help="process uploads on a server; never download YouTube")
     args = ap.parse_args(argv or [])
     load_env()
     from .env import missing
@@ -524,7 +586,8 @@ def main(argv: list[str] | None = None) -> int:
     root = library.home()
     if not invites(root):
         print(f"first invite code (yours): {make_invite(root, 'owner', per_day=50, asks_per_day=500)}")
-    print(f"boson-video web on http://{args.host}:{args.port}{' (hosted: uploads only)' if args.hosted else ''}", flush=True)
+    private(root / "invites.json", root / "web-secret", root / "remote-token", *(root / "codes").glob("*.json"))
+    print(f"boson-video web on http://{args.host}:{args.port}{' (hosted)' if args.hosted else ''}", flush=True)
     uvicorn.run(make_app(root, args.hosted), host=args.host, port=args.port, log_level="warning",
                 proxy_headers=True, forwarded_allow_ips="*")
     return 0

@@ -19,6 +19,9 @@ COPY deploy/start.sh ./start.sh
 ENV BOSON_VIDEO_HOME=/data \
     BOSON_MODELS=/data/models \
     PATH="/app/.venv/bin:$PATH" \
+    BOSON_BUILD_WORKERS=1 \
     PYTHONUNBUFFERED=1
 EXPOSE 8770
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10m --retries=3 \
+    CMD curl --fail --silent "http://127.0.0.1:${PORT:-8770}/healthz" || exit 1
 CMD ["sh", "/app/start.sh"]

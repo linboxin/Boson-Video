@@ -189,3 +189,68 @@ def test_opening_a_video_without_a_summary_fills_it_in(home, started, monkeypatc
     hosted.post("/api/open", json={"link": "zyxwvutsrqp"}, headers=POST)
     hosted.get("/api/video/zyxwvutsrqp")
     assert started == []  # on a server: the screen wasn't read, and reading it would fetch from YouTube
+
+
+def test_guessing_codes_is_limited_even_from_made_up_addresses(home):
+    c = _client(home)
+    for i in range(web.ALL_GUESSES):
+        c.post("/api/join", json={"code": "WRNG-0000"}, headers={**POST, "X-Forwarded-For": f"10.0.{i // 250}.{i % 250}"})
+    r = c.post("/api/join", json={"code": "WRNG-0000"}, headers={**POST, "X-Forwarded-For": "10.9.9.9"})
+    assert r.status_code == 429
+    web._tries.clear()
+    good = web.make_invite(home, "me")
+    assert c.post("/api/join", json={"code": good}, headers=POST).status_code == 200  # a right code doesn't count
+
+
+def test_an_upload_over_the_limit_is_refused_before_it_is_kept(home, started):
+    c = _client(home)
+    _join(c, home, per_day=0)
+    r = c.post("/api/upload", content=b"\x00" * 1000, headers={**POST, "X-Name": "clip.mp4"})
+    assert r.status_code == 429 and started == []
+    assert not list((home / "uploads").glob("*")) if (home / "uploads").exists() else True
+
+
+def test_the_page_never_sees_a_traceback(home, started):
+    c = _client(home)
+    _join(c, home)
+    c.post("/api/open", json={"link": "abcdefghijk"}, headers=POST)
+    jobs._write_status(home / "abcdefghijk", stage="error", error="boom", trace="Traceback (most recent call last): ...")
+    status = c.get("/api/video/abcdefghijk").json()["status"]
+    assert status["error"] == "boom" and "trace" not in status
+
+
+def test_codes_and_secrets_are_for_this_account_only(home):
+    web.make_invite(home, "me")
+    web._secret(home)
+    for name in ("invites.json", "web-secret"):
+        assert (home / name).stat().st_mode & 0o077 == 0
+
+
+def test_health_check_and_upload_limit(home):
+    with _client(home, hosted=True) as c:
+        assert c.get("/healthz").json() == {"status": "ok"}
+        _join(c, home)
+        assert c.get("/api/me").json()["upload_max_mb"] == web.UPLOAD_MAX // 2**20
+
+
+def test_interrupted_upload_leaves_no_partial_file(home, monkeypatch):
+    import asyncio
+    from starlette.requests import Request
+
+    monkeypatch.setattr(web, "who", lambda request: ("test", {"per_day": 10}))
+    messages = iter([{"type": "http.request", "body": b"partial video", "more_body": True},
+                     {"type": "http.disconnect"}])
+
+    async def receive():
+        return next(messages)
+
+    request = Request({"type": "http", "method": "POST", "path": "/api/upload",
+                       "app": web.make_app(home, True), "headers": [(b"x-bv", b"1"), (b"x-name", b"clip.mp4")]}, receive)
+    assert asyncio.run(web.upload(request)).status_code == 400
+    assert not list((home / "uploads").iterdir())
+
+
+def test_invalid_upload_length_is_a_client_error(home):
+    c = _client(home)
+    _join(c, home)
+    assert c.post("/api/upload", content=b"video", headers={**POST, "Content-Length": "bad"}).status_code == 400

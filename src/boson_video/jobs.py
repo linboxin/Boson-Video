@@ -14,12 +14,14 @@ import sys
 import threading
 import time
 import traceback
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from . import library, llm
 
-_running: dict[str, threading.Thread] = {}
+_running: dict[Path, Future] = {}
 _lock = threading.Lock()
+_pool: ThreadPoolExecutor | None = None
 
 
 def words_estimate(duration: float) -> float:
@@ -46,29 +48,65 @@ def status(name: str, root: Path | None = None) -> dict:
     return {"stage": "missing"}
 
 
-def running(name: str) -> bool:
+def running(name: str, root: Path | None = None) -> bool:
     with _lock:
-        t = _running.get(name)
-        return bool(t and t.is_alive())
+        task = _running.get(library.folder(name, root).resolve())
+        return bool(task and not task.done())
 
 
 def start(ref: str, root: Path | None = None, words: bool = True, title: str | None = None) -> str:
     """Start building `ref` (a link, id or file) unless it is built or building; returns its key.
     `title` names an uploaded file, which is kept under its hash rather than its own name."""
     name = library.key(ref)
+    root = (root or library.home()).resolve()
+    where = library.folder(name, root)
     with _lock:
-        t = _running.get(name)
-        if t and t.is_alive():
+        task = _running.get(where)
+        if task and not task.done():
             return name
         state = status(name, root)
         if state["stage"] == "done" and (not words or _complete(name, root)):
             return name
-        # A fresh status before the thread starts, so nobody reads a stale error from an earlier run.
-        _write_status(library.folder(name, root), stage="queued", started=time.time())
-        t = threading.Thread(target=_build, args=(ref, name, root, words, title), daemon=True, name=f"build-{name}")
-        _running[name] = t
-        t.start()
+        # Persist the input before enqueueing: the hosted app resumes unfinished uploads on startup.
+        if Path(ref).expanduser().is_file():
+            ref = str(Path(ref).expanduser().resolve())
+        library.atomic_text(where / "job.json", json.dumps({"ref": ref, "words": words, "title": title}))
+        _write_status(where, stage="queued", started=time.time())
+        global _pool
+        if _pool is None:
+            _pool = ThreadPoolExecutor(max_workers=max(1, int(os.environ.get("BOSON_BUILD_WORKERS", "1"))),
+                                       thread_name_prefix="build")
+        for old in [key for key, task in _running.items() if task.done()]:
+            del _running[old]
+        _running[where] = _pool.submit(_build, ref, name, root, words, title)
     return name
+
+
+def resume(root: Path, hosted: bool = False) -> int:
+    """Resume interrupted jobs. Hosted recovery only reads uploads inside this data volume.
+
+    Errors remain errors until retried by the user; a restart must not retry a permanent failure.
+    Run one application process per data volume (the queue and locks are process-local).
+    """
+    count = 0
+    for path in sorted(root.glob("*/job.json")):
+        if status(path.parent.name, root).get("stage") in ("done", "error"):
+            continue
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+            ref = job["ref"]
+            if not isinstance(ref, str):
+                continue
+            source = Path(ref).expanduser()
+            if hosted and not (source.is_file() and source.resolve().is_relative_to((root / "uploads").resolve())):
+                continue
+            if library.key(ref) != path.parent.name:
+                continue
+            start(ref, root, words=bool(job.get("words", True)), title=job.get("title"))
+            count += 1
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return count
 
 
 def wait(name: str, seconds: float, root: Path | None = None, until: tuple[str, ...] = ("done", "error")) -> dict:
@@ -90,8 +128,10 @@ def _complete(name: str, root: Path | None) -> bool:
         data = json.loads((library.folder(name, root) / "timeline.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
-    return (bool(data.get("transcript")) and ("screens" in data.get("timings_ms", {}) or not screens.available())
-            and (bool(data.get("summary")) or not llm.configured()))
+    timings = data.get("timings_ms", {})
+    return ((bool(data.get("transcript")) or "words total" in timings)
+            and ("screens" in timings or not screens.available())
+            and (bool(data.get("summary")) or not data.get("transcript") or not llm.configured()))
 
 
 def screens_estimate(moments: int) -> float:
@@ -128,7 +168,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             if title:
                 tl.video.title = title
             library.save(tl, where)
-        if words and not tl.transcript:
+        if words and not tl.transcript and "words total" not in tl.timings:
             stage = "words"
             _write_status(where, stage=stage, started=started, words_eta=started + words_estimate(tl.video.duration))
             add_words(tl, where, say=lambda text: _write_status(where, stage=stage, started=started, note=text))

@@ -110,3 +110,27 @@ Run alone (as in the product): 28 minutes written in 25.5 s (11 parts) and 60 mi
 parts), checked in 0.8 s, repaired in 4-9 s, both ending with no failed sentence. Run beside other
 writers, Mercury rate-limited the parts (fixed: back-off, four parts at once). For reference only,
 an earlier run of OpenAI's GPT-6 Luna and Sol in one call: 3.0% and 5.3% failed, 42 and 53 with numbers.
+
+
+## Hosted upload smoke check (2026-10-11, local Mac)
+
+A generated 6.9-second video with speech and two slides was uploaded through the real hosted
+HTTP API. No media or speech models were downloaded. This checks the application path on the
+Mac; it is **not** a Linux/container or production-server measurement. One run, rounded stage
+values from the document:
+
+| Stage | Measured time | Result |
+| --- | --- | --- |
+| Scene map | 0.12 s | 4 preview frames, 2 scenes |
+| Audio preparation and Apple speech recognition | 0.84 s | 3 passages; “$128” and “October 12th” transcribed correctly |
+| Frame capture and OCR | 0.64 s | 1 screen-text moment |
+| Summary and study, enabled after the first build | write 5.14 s; study remainder 0.00 s | Mercury 2.5; 3 tldr sentences and a section |
+| Check | 0.46 s | 6 of 6 summary sentences supported by Jev and code |
+| Ask: “What is the project budget?” | 1.32 s | “The project budget is $128.”, cited at 1.86 s and checked |
+
+The no-key build was observed complete 2.04 s after upload returned (one-second polling).
+Video range requests returned 206, frame requests returned 200, and a new YouTube link was
+refused in hosted mode. The persisted document and invite survived an application restart;
+queued-job recovery is covered separately by offline tests. Paid API cost was not measured in
+this smoke check. Production Linux processing, upload limits, and restart recovery still need
+verification on the deployment host.

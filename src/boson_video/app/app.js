@@ -143,32 +143,46 @@
     const fill = h("i");
     const bar = h("div", { class: "bar", hidden: true }, fill);
     const input = h("input", { type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", "aria-label": "YouTube link",
-                               placeholder: ME.hosted ? "Choose a video file to read" : "Paste a YouTube link" });
+                               placeholder: "Paste a YouTube link" });
     const picker = h("input", { type: "file", accept: "video/*,.mkv", hidden: true, onchange: () => picker.files[0] && upload(picker.files[0]) });
+    let uploading = false;
+    const uploadLimit = ME.upload_max_mb || 2048;
     function upload(file) {
+      if (uploading) return;
+      if (!file.size || file.size > uploadLimit * 1024 * 1024) {
+        msg.textContent = !file.size ? "The file is empty." : `Choose a video up to ${uploadLimit} MB.`;
+        return;
+      }
+      uploading = true;
       msg.textContent = "";
       bar.hidden = false;
       fill.style.width = "0%";
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/upload");
+      xhr.timeout = 30 * 60 * 1000;
       xhr.setRequestHeader("X-BV", "1");
       xhr.setRequestHeader("X-Name", encodeURIComponent(file.name));
       xhr.upload.onprogress = e => { if (e.lengthComputable) fill.style.width = `${(100 * e.loaded / e.total).toFixed(1)}%`; };
       xhr.onload = () => {
+        uploading = false;
         let d = {};
         try { d = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
         if (xhr.status === 200) return go(`/v/${d.key}`);
         bar.hidden = true;
         msg.textContent = d.error || "The upload didn't go through.";
       };
-      xhr.onerror = () => { bar.hidden = true; msg.textContent = "The upload didn't go through."; };
+      xhr.onerror = xhr.ontimeout = xhr.onabort = () => {
+        uploading = false;
+        bar.hidden = true;
+        msg.textContent = "The upload didn't finish. Please try again.";
+      };
       xhr.send(file);
     }
     onDrop = upload;
     const form = h("form", { class: "box", onsubmit: async e => {
       e.preventDefault();
       const link = input.value.trim();
-      if (!link) { if (ME.hosted) picker.click(); return; }
+      if (!link) { picker.click(); return; }
       msg.textContent = "";
       try { go(`/v/${(await api("/api/open", { link })).key}`); } catch (err) { msg.textContent = err.message; }
     } },
@@ -180,10 +194,13 @@
       : null;
     mount(h("main", { class: "home" },
       h("h1", {}, "What do you want to read?"),
-      form,
-      h("p", { class: "hint" }, ME.hosted ? "Video files up to 2 GB. YouTube links come with the browser extension." : "Or drop a video file anywhere on this page."),
+      ME.hosted ? h("button", { class: "upload-main", type: "button", onclick: () => picker.click() }, icon("clip"), "Choose a video file") : form,
+      h("p", { class: "hint" }, ME.hosted
+        ? `Or drop a video here · up to ${uploadLimit} MB. Processing runs on the server.`
+        : "Or drop a video file anywhere on this page."),
+      ME.hosted ? h("p", { class: "hint" }, "YouTube link import is not available on the hosted site yet.") : null,
       bar, msg, picker, list));
-    if (!matchMedia("(pointer: coarse)").matches) input.focus();
+    if (!ME.hosted && !matchMedia("(pointer: coarse)").matches) input.focus();
   }
 
   function card(v) {

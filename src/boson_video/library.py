@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 from pathlib import Path
 
 from .render import render
@@ -41,6 +42,17 @@ def exists(name: str, root: Path | None = None) -> bool:
     return (folder(name, root) / "timeline.json").exists()
 
 
+def atomic_text(path: Path, text: str) -> None:
+    """Readers see the previous complete file or the next one, including during a restart."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def load(name: str, root: Path | None = None, with_sheets: bool = False) -> Timeline:
     where = folder(name, root)
     data = json.loads((where / "timeline.json").read_text(encoding="utf-8"))
@@ -65,14 +77,14 @@ def save(tl: Timeline, where: Path) -> Path:
     assemble(tl, where)
     where.mkdir(parents=True, exist_ok=True)
     page = where / "index.html"
-    page.write_text(render(tl), encoding="utf-8")
-    (where / "timeline.json").write_text(json.dumps(tl.to_json(), ensure_ascii=False, indent=1), encoding="utf-8")
+    atomic_text(page, render(tl))
     if tl.sheets:
         (where / "sheets").mkdir(exist_ok=True)
         for i, sheet in enumerate(tl.sheets):
             path = where / "sheets" / f"{i}.jpg"
             if not path.exists() or path.stat().st_size != len(sheet.jpeg):
                 path.write_bytes(sheet.jpeg)
+    atomic_text(where / "timeline.json", json.dumps(tl.to_json(), ensure_ascii=False, indent=1))
     return page
 
 

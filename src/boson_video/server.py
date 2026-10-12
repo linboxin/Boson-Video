@@ -52,7 +52,7 @@ def build_status(root: Path, name: str) -> dict:
     for k in ("error", "failed_at", "note"):
         if state.get(k):
             out[k] = state[k]
-    if out["stage"] in STAGES and not jobs.running(name) and now - state.get("updated", now) > STALE:
+    if out["stage"] in STAGES and not jobs.running(name, root) and now - state.get("updated", now) > STALE:
         out["stage"] = "stopped"  # the process that ran it ended (the plugin's, or an earlier server)
     return out
 

@@ -48,12 +48,13 @@ def test_a_video_not_started_yet_has_no_document(home):
     assert "video" not in doc and doc["status"]["stage"] == "missing"
 
 
-def test_pictures_are_cut_at_whole_seconds_and_sent_small(home):
+def test_pictures_are_sent_small_and_kept_once_per_thumbnail(home):
     library.save(_tl(), home / KEY)
     data = viewer.picture(KEY, 12.7)
     with Image.open(io.BytesIO(data)) as im:
         assert im.format == "JPEG" and im.width <= viewer.WIDTH
-    assert [p.name for p in (home / KEY / "frames").glob("*-thumb.jpg")] == ["12000-thumb.jpg"]
+    viewer.picture(KEY, 13.2)  # the same thumbnail: no second file
+    assert [p.name for p in (home / KEY / "frames").glob("*-thumb.jpg")] == ["10000-thumb.jpg"]
     assert viewer.picture("zyxwvutsrqp", 3) is None
 
 
