@@ -91,8 +91,8 @@ open ([DIRECTION.md](DIRECTION.md)).
   and the reader sees which checker gave it.
 - **Cost follows the pictures and the words, not the runtime.** Sharp frames and OCR happen only
   where something new appears, so an hour-long talk with 70 slides costs 70 frames.
-- **YouTube downloads stay on the user's side.** A server takes uploads; YouTube links on a
-  server wait for the browser extension.
+- **YouTube downloads stay on the user's side.** A server takes uploads, and YouTube videos
+  sent from the user's computer (`boson-video send`).
 - **Fail loudly.** A stage that falls back says so, in the command line, on the page and in the
   plugin.
 - **Speed is measured.** Every stage is timed (`Stopwatch` in `pipeline.py`), and the numbers go

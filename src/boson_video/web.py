@@ -6,8 +6,9 @@ signed cookie) and is counted against a daily limit of new videos and of questio
 sees the videos it opened. Videos are built in the background by jobs.py into BOSON_VIDEO_HOME,
 the same home as the command line and the plugin.
 
-`--hosted` processes uploaded files with the same Boson engine. It never downloads YouTube;
-already-built YouTube documents remain readable. See docs/deploy.md for hosting.
+`--hosted` processes uploaded files with the same Boson engine. It never downloads YouTube: a
+YouTube video arrives from the user's computer (`boson-video send`, send.py) as its scene map and
+its sound, and the server does the rest. See docs/deploy.md for hosting.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from starlette.requests import ClientDisconnect, Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
-from . import frames, jobs, library, llm, study, writer
+from . import frames, jobs, library, llm, send, study, writer
 from .scenes import profile
 from .timeline import Timeline
 from .youtube import YouTubeError, parse_video_id
@@ -366,7 +367,9 @@ async def open_link(request: Request) -> Response:
     except YouTubeError:
         return _error(400, "That doesn't look like a YouTube link.")
     if hosted and not library.exists(vid, root):
-        return _error(403, "Upload a video file to process it here. New YouTube links need the browser extension, which is not available yet.")
+        command = f"uvx boson-video send {vid} --to {_site(request)}"
+        return JSONResponse({"error": f"This site doesn't fetch from YouTube. On your computer, run: {command}",
+                             "command": command}, 403)
     if refusal := _admit(root, *found, vid):
         return _error(429, refusal)
     if not hosted:
@@ -430,6 +433,72 @@ async def upload(request: Request) -> Response:
     return JSONResponse({"key": key})
 
 
+async def receive(request: Request) -> Response:
+    """A YouTube video from the user's computer (boson-video send): its scene map, sheets and sound
+    in one zip. Checked whole before anything is kept; then built here like an upload."""
+    if bad := _post_guard(request):
+        return bad
+    if not (found := who(request)):
+        return _error(401, "Enter your invite code first.")
+    root = request.app.state.root
+    try:
+        length = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        return _error(400, "Invalid upload length.")
+    if not 0 < length <= UPLOAD_MAX:
+        return _error(413 if length else 400, f"Up to {UPLOAD_MAX // 2**20} MB." if length else "Nothing was sent.")
+    st = state(root, found[0])
+    if st["built"] >= found[1].get("per_day", 10):
+        return _error(429, _over(st))
+    folder = root / "uploads"
+    folder.mkdir(parents=True, exist_ok=True)
+    tmp, size = folder / f".send-{secrets.token_hex(6)}", 0
+    try:
+        with tmp.open("wb") as f:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > UPLOAD_MAX:
+                    break
+                f.write(chunk)
+        if size > UPLOAD_MAX:
+            return _error(413, f"Up to {UPLOAD_MAX // 2**20} MB.")
+        try:
+            tl, sound, lang = await run_in_threadpool(send.receive, tmp, UPLOAD_MAX)
+        except send.SendError as e:
+            return _error(400, f"That couldn't be read: {e}")
+        key = tl.video.id
+        if refusal := _admit(root, *found, key):
+            return _error(429, refusal)
+        if not jobs.running(key, root):
+            await run_in_threadpool(_keep_sent, root, tl, tmp, sound, lang)
+            jobs.start(f"https://www.youtube.com/watch?v={key}", root)
+        return JSONResponse({"key": key})
+    except ClientDisconnect:
+        return _error(400, "The upload was interrupted. Try again.")
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def _keep_sent(root: Path, tl: Timeline, bundle: Path, sound: str, lang: str) -> None:
+    """Keep what was sent. A video already read here keeps its document; one without words gets the sound."""
+    where = root / tl.video.id
+    if library.exists(tl.video.id, root) and load(root, tl.video.id).transcript:
+        return
+    for old in where.glob("audio.*"):
+        if old.name != "audio.lang":
+            old.unlink()
+    where.mkdir(parents=True, exist_ok=True)
+    send.extract(bundle, sound, where / sound)
+    library.atomic_text(where / "audio.lang", lang)
+    if not library.exists(tl.video.id, root):
+        library.save(tl, where)
+
+
+def _site(request: Request) -> str:
+    """This site's address as the user knows it."""
+    return (os.environ.get("BOSON_PUBLIC_URL") or str(request.base_url)).rstrip("/")
+
+
 def _mine(request: Request) -> tuple[Path, str, str] | Response:
     """(home, code id, video key) when this browser may see the video in the path."""
     if not (found := who(request)):
@@ -465,8 +534,6 @@ def _fill_in(request: Request, root: Path, key: str, tl: Timeline, status: dict)
     if not (tl.transcript and tl.summary is None and llm.configured()):
         return False
     if status.get("stage") not in ("done", "missing") or jobs.running(key, root):
-        return False
-    if request.app.state.hosted and tl.video.id and "screens" not in tl.timings:
         return False
     jobs.start(f"https://www.youtube.com/watch?v={tl.video.id}" if tl.video.id else tl.video.url, root)
     return True
@@ -558,12 +625,15 @@ def make_app(root: Path, hosted: bool = False) -> Starlette:
         Route("/api/join", join, methods=["POST"]),
         Route("/api/open", open_link, methods=["POST"]),
         Route("/api/upload", upload, methods=["POST"]),
+        Route("/api/send", receive, methods=["POST"]),
         Route("/api/ask", ask, methods=["POST"]),
         Route("/api/video/{key}", video),
         Route("/media/{key}/{kind}", media),
         Route("/media/{key}/{kind}/{rest}", media),
     ])
     app.state.root, app.state.hosted = root, hosted
+    if hosted:  # nothing on a hosted server fetches from YouTube; videos are sent (send.py)
+        os.environ["BOSON_NO_YOUTUBE"] = "1"
     return app
 
 
@@ -576,7 +646,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8770)
     ap.add_argument("--hosted", action="store_true",
-                    help="process uploads on a server; never download YouTube")
+                    help="process uploads on a server; never fetch from YouTube (videos are sent: boson-video send)")
     args = ap.parse_args(argv or [])
     load_env()
     from .env import missing

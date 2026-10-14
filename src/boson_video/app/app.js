@@ -143,14 +143,15 @@
     const fill = h("i");
     const bar = h("div", { class: "bar", hidden: true }, fill);
     const input = h("input", { type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", "aria-label": "YouTube link",
-                               placeholder: "Paste a YouTube link" });
+                               placeholder: ME.hosted ? "Choose a video file to read" : "Paste a YouTube link" });
     const picker = h("input", { type: "file", accept: "video/*,.mkv", hidden: true, onchange: () => picker.files[0] && upload(picker.files[0]) });
     let uploading = false;
     const uploadLimit = ME.upload_max_mb || 2048;
+    const size = mb => mb % 1024 ? `${mb} MB` : `${mb / 1024} GB`;
     function upload(file) {
       if (uploading) return;
       if (!file.size || file.size > uploadLimit * 1024 * 1024) {
-        msg.textContent = !file.size ? "The file is empty." : `Choose a video up to ${uploadLimit} MB.`;
+        msg.textContent = !file.size ? "The file is empty." : `Choose a video up to ${size(uploadLimit)}.`;
         return;
       }
       uploading = true;
@@ -182,7 +183,7 @@
     const form = h("form", { class: "box", onsubmit: async e => {
       e.preventDefault();
       const link = input.value.trim();
-      if (!link) { picker.click(); return; }
+      if (!link) { if (ME.hosted) picker.click(); return; }
       msg.textContent = "";
       try { go(`/v/${(await api("/api/open", { link })).key}`); } catch (err) { msg.textContent = err.message; }
     } },
@@ -194,13 +195,10 @@
       : null;
     mount(h("main", { class: "home" },
       h("h1", {}, "What do you want to read?"),
-      ME.hosted ? h("button", { class: "upload-main", type: "button", onclick: () => picker.click() }, icon("clip"), "Choose a video file") : form,
-      h("p", { class: "hint" }, ME.hosted
-        ? `Or drop a video here · up to ${uploadLimit} MB. Processing runs on the server.`
-        : "Or drop a video file anywhere on this page."),
-      ME.hosted ? h("p", { class: "hint" }, "YouTube link import is not available on the hosted site yet.") : null,
+      form,
+      h("p", { class: "hint" }, ME.hosted ? `Video files up to ${size(uploadLimit)}. YouTube links are sent from your computer.` : "Or drop a video file anywhere on this page."),
       bar, msg, picker, list));
-    if (!ME.hosted && !matchMedia("(pointer: coarse)").matches) input.focus();
+    if (!matchMedia("(pointer: coarse)").matches) input.focus();
   }
 
   function card(v) {

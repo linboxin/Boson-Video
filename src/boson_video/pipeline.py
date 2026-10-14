@@ -99,6 +99,9 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
     clock = Stopwatch()
     folder.mkdir(parents=True, exist_ok=True)
     if tl.video.id:
+        if not youtube.downloads_allowed() and (fresh_audio or not audio._downloaded(folder)):
+            raise audio.AudioError("this server doesn't fetch from YouTube; send the video from your computer "
+                                   "(boson-video send <link>)")
         src = audio.fetch_youtube(tl.video.id, folder, fresh=fresh_audio)
         clock.lap("audio download")
     else:

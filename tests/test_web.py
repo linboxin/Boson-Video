@@ -23,6 +23,7 @@ def started(monkeypatch):
 @pytest.fixture
 def home(tmp_path, monkeypatch, started):
     monkeypatch.setenv("BOSON_VIDEO_HOME", str(tmp_path))
+    monkeypatch.delenv("BOSON_NO_YOUTUBE", raising=False)  # restored after a hosted app sets it
     tl = _tl()
     tl.summary = Summary([Sentence("残差流是主干道", "The residual stream is the main road", [0], "supported")],
                          [Section("引子", "Intro", 0, 20, [Sentence("一百二十八个问题", "128 questions", [1], "unsupported")])],
@@ -119,7 +120,7 @@ def test_hosted_refuses_to_download_youtube_but_opens_what_is_built(home, starte
     c = _client(home, hosted=True)
     _join(c, home)
     r = c.post("/api/open", json={"link": "zyxwvutsrqp"}, headers=POST)
-    assert r.status_code == 403 and "extension" in r.json()["error"]
+    assert r.status_code == 403 and "boson-video send zyxwvutsrqp" in r.json()["command"]
     assert c.post("/api/open", json={"link": "abcdefghijk"}, headers=POST).status_code == 200
     assert started == []  # not even to finish a half-built one
 
@@ -188,7 +189,8 @@ def test_opening_a_video_without_a_summary_fills_it_in(home, started, monkeypatc
     _join(hosted, home)
     hosted.post("/api/open", json={"link": "zyxwvutsrqp"}, headers=POST)
     hosted.get("/api/video/zyxwvutsrqp")
-    assert started == []  # on a server: the screen wasn't read, and reading it would fetch from YouTube
+    assert started == [("https://www.youtube.com/watch?v=zyxwvutsrqp", None)]  # on a server too:
+    assert not jobs.reads_screens("zyxwvutsrqp")  # its job leaves the screen alone, which would need YouTube
 
 
 def test_guessing_codes_is_limited_even_from_made_up_addresses(home):

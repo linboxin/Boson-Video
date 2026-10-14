@@ -48,6 +48,10 @@ def main(argv: list[str] | None = None) -> int:
         from .web import main as web_main
 
         return web_main(argv[1:])
+    if argv[:1] == ["send"]:
+        from .send import main as send_main
+
+        return send_main(argv[1:])
     if argv[:1] == ["models"]:
         return models_main(argv[1:])
     if argv[:1] == ["invite"]:

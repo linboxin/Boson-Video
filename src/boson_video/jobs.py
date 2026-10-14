@@ -83,7 +83,8 @@ def start(ref: str, root: Path | None = None, words: bool = True, title: str | N
 
 
 def resume(root: Path, hosted: bool = False) -> int:
-    """Resume interrupted jobs. Hosted recovery only reads uploads inside this data volume.
+    """Resume interrupted jobs. Hosted recovery only reads uploads inside this data volume and
+    YouTube videos sent with their sound.
 
     Errors remain errors until retried by the user; a restart must not retry a permanent failure.
     Run one application process per data volume (the queue and locks are process-local).
@@ -98,7 +99,8 @@ def resume(root: Path, hosted: bool = False) -> int:
             if not isinstance(ref, str):
                 continue
             source = Path(ref).expanduser()
-            if hosted and not (source.is_file() and source.resolve().is_relative_to((root / "uploads").resolve())):
+            upload = source.is_file() and source.resolve().is_relative_to((root / "uploads").resolve())
+            if hosted and not (upload or _sent(path.parent)):
                 continue
             if library.key(ref) != path.parent.name:
                 continue
@@ -107,6 +109,14 @@ def resume(root: Path, hosted: bool = False) -> int:
         except (OSError, ValueError, KeyError, TypeError):
             continue
     return count
+
+
+def _sent(where: Path) -> bool:
+    """A YouTube video whose scene map and sound came from the user's computer (boson-video send):
+    resuming it needs nothing from YouTube."""
+    from .audio import AUDIO_SUFFIXES
+
+    return (where / "timeline.json").exists() and any(p.suffix.lower() in AUDIO_SUFFIXES for p in where.glob("audio.*"))
 
 
 def wait(name: str, seconds: float, root: Path | None = None, until: tuple[str, ...] = ("done", "error")) -> dict:
@@ -122,16 +132,23 @@ def wait(name: str, seconds: float, root: Path | None = None, until: tuple[str, 
 def _complete(name: str, root: Path | None) -> bool:
     """Built as far as this computer can: words, the screen read if OCR is installed, and the
     summary if there is a writing key (a video first opened without one gets it later)."""
-    from . import screens
-
     try:
         data = json.loads((library.folder(name, root) / "timeline.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     timings = data.get("timings_ms", {})
     return ((bool(data.get("transcript")) or "words total" in timings)
-            and ("screens" in timings or not screens.available())
+            and ("screens" in timings or not reads_screens(data.get("video", {}).get("id")))
             and (bool(data.get("summary")) or not data.get("transcript") or not llm.configured()))
+
+
+def reads_screens(video_id: str | None) -> bool:
+    """The screen can be read here: OCR is installed, and the frames can be fetched (a hosted
+    server has a YouTube video's sound and thumbnails, never its picture)."""
+    from . import screens
+    from .youtube import downloads_allowed
+
+    return screens.available() and (not video_id or downloads_allowed())
 
 
 def screens_estimate(moments: int) -> float:
@@ -173,7 +190,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             _write_status(where, stage=stage, started=started, words_eta=started + words_estimate(tl.video.duration))
             add_words(tl, where, say=lambda text: _write_status(where, stage=stage, started=started, note=text))
             library.save(tl, where)
-        if words and "screens" not in tl.timings and screens.available():
+        if words and "screens" not in tl.timings and reads_screens(tl.video.id):
             stage = "screens"
             count = len(frames.moments(tl, 0.0, None, limit=10**6))
             _write_status(where, stage=stage, started=started, screens_eta=time.time() + screens_estimate(count))
@@ -195,6 +212,8 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
         if tl.transcript and tl.summary is None and not llm.configured():
             why["note"] = ("No summary, English or terms: this server has no INCEPTION_API_KEY (Mercury writes them). "
                            "Put it in .env, or in ~/.boson-video/.env, restart, and open the video again.")
+        elif words and "screens" not in tl.timings and tl.video.id and not reads_screens(tl.video.id) and screens.available():
+            why["note"] = "Screen text isn't read here: this server never fetches YouTube's picture. The player shows it."
         _write_status(where, stage="done", started=started, seconds=round(time.time() - started, 1), **why)
     except Exception as e:
         _write_status(where, stage="error", started=started, failed_at=stage, error=str(e).strip().splitlines()[0][:300],

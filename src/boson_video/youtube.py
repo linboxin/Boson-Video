@@ -14,6 +14,7 @@ is already loaded.
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urljoin, urlparse
@@ -35,6 +36,12 @@ _DATA = re.compile(r"ytInitialData\"?\]?\s*=\s*\{")
 
 class YouTubeError(RuntimeError):
     pass
+
+
+def downloads_allowed() -> bool:
+    """False on a hosted server (`web --hosted` sets BOSON_NO_YOUTUBE): there the sound and the
+    scene map arrive from the user's computer (`boson-video send`) and nothing is fetched from YouTube."""
+    return os.environ.get("BOSON_NO_YOUTUBE", "").lower() not in ("1", "true", "yes")
 
 
 def parse_video_id(ref: str) -> str:
