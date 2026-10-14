@@ -138,7 +138,7 @@ def add_words(tl: Timeline, folder: Path, locale: str | None = None, fresh_audio
 def add_summary(tl: Timeline, effort: str | None = None, where: Path | None = None) -> dict:
     """Write the summary, the English transcript and the glossary at once (Mercury), then check
     every cited sentence (Jev). The summary is required; the other two are extras, so a failure
-    there is reported and the page goes on without it."""
+    there is reported (`lacking`) and the page goes on without that one."""
     clock = Stopwatch()
     names = speech.names(tl.video.title, tl.video.channel, tl.video.description) + speech.title_terms(tl.video.title)
     language = writer.language_name(tl.language)
@@ -151,12 +151,20 @@ def add_summary(tl: Timeline, effort: str | None = None, where: Path | None = No
         if language != "English":  # the writer sometimes skips the English; fill what's missing
             write_stats["english_filled"] = study.fill_summary_english(tl, names)
         clock.lap("write")
-        try:
-            if english:
+        lacking = {}
+        if english:
+            try:
                 tl.translation, extras["translate"] = english.result()
+            except llm.LLMError as e:
+                lacking["english"] = f"No English transcript: {e}."
+        try:
             tl.terms, tl.questions, extras["glossary"] = terms.result()
         except llm.LLMError as e:
-            extras["error"] = str(e)
+            lacking["terms"] = f"No terms: {e}."
+        if missing := extras.get("translate", {}).get("missing"):
+            lacking["english"] = f"{missing} of {len(tl.transcript)} passages have no English (the writer failed on them twice)."
+        if lacking:
+            extras["lacking"] = lacking
     clock.lap("study")
     check_stats = checker.check(tl, where=where)  # `where`: frames for a second look
     clock.lap("check")

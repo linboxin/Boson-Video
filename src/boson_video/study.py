@@ -21,26 +21,24 @@ from . import ask as ask_mod
 from . import checker, llm
 from .timeline import Segment, Sentence, Term, Timeline
 
-CHUNK = 120  # passages per translation request; chunks run at once
+CHUNK = 40  # passages per translation request; chunks run at once (asked for 120, Mercury stopped near 90: 2026-10-14)
 
 TRANSLATE_SYSTEM = """You translate a video's machine-made transcript into natural English, passage by passage.
 
-- `transcript` has one passage per line: its id, then what was said. Return one item per id, same ids, same order.
+- `transcript` has one passage per line: its key (p0, p1, …), then what was said. Return an object with exactly those keys. For each: `starts`, the first five characters of what was said (after the key), copied exactly, and `en`, the English for that passage alone.
+- Each passage may start or end mid-sentence. Never move words from one passage into another: if a passage ends mid-sentence, its English ends there too ("…").
 - Speech recognition garbles English words inside other languages ("ibedding" for "embedding", "toan" for "token"). Translate what the speaker meant; spell names as `names` does.
 - `on_screen`, when given, is text shown in the video: it spells names right where speech recognition misheard them (英矽智能 on a slide, 因系智能 in the transcript). Follow its spelling, and give a company or product its usual English name (英矽智能 → Insilico Medicine).
 - Keep technical terms precise and keep every number. Don't summarise, don't merge or skip passages.
-- Each passage may start or end mid-sentence; translate just the words it holds.
 """
 
-TRANSLATE_SCHEMA = {
-    "type": "object",
-    "properties": {"lines": {"type": "array", "items": {
-        "type": "object",
-        "properties": {"id": {"type": "integer"}, "en": {"type": "string"}},
-        "required": ["id", "en"], "additionalProperties": False,
-    }}},
-    "required": ["lines"], "additionalProperties": False,
-}
+
+def _translate_schema(keys: list[str]) -> dict:
+    """One required key per passage: asked for a list, Mercury split passages into sentences and
+    numbered those, so the English drifted lines away from its Chinese (2026-10-14)."""
+    line = {"type": "object", "properties": {"starts": {"type": "string"}, "en": {"type": "string"}},
+            "required": ["starts", "en"], "additionalProperties": False}
+    return {"type": "object", "properties": {k: line for k in keys}, "required": keys, "additionalProperties": False}
 
 GLOSSARY_SYSTEM = """You help a learner who is fluent in everyday {language} but not in this video's technical field.
 
@@ -100,38 +98,58 @@ class StudyError(RuntimeError):
 
 
 def translate(tl: Timeline, names: list[str], transport=None) -> tuple[list[str], dict]:
-    """English for every passage (empty strings where a chunk failed twice)."""
-    return translate_texts([s.text for s in tl.transcript], tl.video.title, names, transport, tl.screen_lines())
+    """English for every passage (empty strings where a chunk failed twice; an error if all did)."""
+    english, stats = translate_texts([s.text for s in tl.transcript], tl.video.title, names, transport, tl.screen_lines())
+    if english and not any(english):
+        raise llm.LLMError(f"{llm.endpoint().model} returned no usable translation")
+    return english, stats
 
 
 def translate_texts(texts: list[str], title: str, names: list[str], transport=None,
                     on_screen: list[str] | None = None) -> tuple[list[str], dict]:
-    """English for each text, in chunks sent at once."""
+    """English for each text, in chunks sent at once; a chunk that fails twice stays empty."""
     n = len(texts)
     if not n:
         return [], {"seconds": 0, "cost_usd": 0, "output_tokens": 0, "missing": 0}
     started = time.perf_counter()
 
     def chunk(lo: int):
-        want = set(range(lo, min(lo + CHUNK, n)))
-        payload = {"title": title, "names": names, "transcript": "\n".join(f"{i} {texts[i]}" for i in sorted(want))}
+        ids = range(lo, min(lo + CHUNK, n))
+        payload = {"title": title, "names": names, "transcript": "\n".join(f"p{i} {texts[i]}" for i in ids)}
         if on_screen:
             payload["on_screen"] = on_screen
-        return llm.ask_json(TRANSLATE_SYSTEM, payload, TRANSLATE_SCHEMA, "translation",
-                                usable=lambda o: len(want & {x.get("id") for x in o.get("lines", [])}) >= 0.9 * len(want),
-                                effort="instant", max_tokens=16000, transport=transport)
+        try:
+            out, st = llm.ask_json(TRANSLATE_SYSTEM, payload, _translate_schema([f"p{i}" for i in ids]), "translation",
+                                   usable=lambda o: sum(_anchored(o, i, texts[i]) for i in ids) >= 0.9 * len(ids),
+                                   effort="instant", max_tokens=16000, transport=transport)
+        except llm.LLMError:  # this chunk goes without English; the others still count
+            return {}, {"cost_usd": 0, "output_tokens": 0}
+        return {i: out[f"p{i}"]["en"].strip() for i in ids if _anchored(out, i, texts[i])}, st
 
     english = [""] * n
     cost, tokens = 0.0, 0
     with ThreadPoolExecutor(8) as pool:
-        for out, st in pool.map(chunk, range(0, n, CHUNK)):
+        for lines, st in pool.map(chunk, range(0, n, CHUNK)):
             cost += st["cost_usd"]
             tokens += st["output_tokens"]
-            for item in out["lines"]:
-                if isinstance(item.get("id"), int) and 0 <= item["id"] < n:
-                    english[item["id"]] = (item.get("en") or "").strip()
+            for i, en in lines.items():
+                english[i] = en
     return english, {"seconds": round(time.perf_counter() - started, 2), "cost_usd": round(cost, 5),
                      "output_tokens": tokens, "missing": english.count("")}
+
+
+def _anchored(reply: dict, i: int, text: str) -> bool:
+    """The reply's English for passage `i`, quoting how that passage starts: a line that drifted
+    onto a neighbouring passage quotes the wrong words, and is left out rather than shown."""
+    line = reply.get(f"p{i}")
+    if not isinstance(line, dict) or not isinstance(line.get("en"), str):
+        return False
+    said, quoted = _plain(text), _plain(re.sub(rf"^\s*p{i}(?!\d)", "", str(line.get("starts", ""))))  # some quote the key too
+    return not said or bool(quoted) and said.startswith(quoted[:3])
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text).lower()
 
 
 def fill_summary_english(tl: Timeline, names: list[str], transport=None) -> int:

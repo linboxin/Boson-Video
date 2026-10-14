@@ -51,6 +51,7 @@
   };
   const length = t => { t = Math.round(t); return t >= 60 ? `${Math.floor(t / 60)} min ${String(t % 60).padStart(2, "0")} s` : `${t} s`; };
   const lang = code => LANGS[(code || "").split("_")[0]] || null;
+  const lacking = (d, part) => (d.status && d.status.lacking && d.status.lacking[part]) ? ` ${d.status.lacking[part]}` : "";
   const checkedBy = c => ({ "jev+code": "Jev and code", "jev+code+frames": "Jev and code; OpenAI looked at the frames for lines the words didn't confirm",
     "openai+code": "OpenAI and code", "openai+code+frames": "OpenAI and code, and the frames for lines the words didn't confirm",
     jev: "Jev", code: "code (numbers only)" })[c] || c || "nothing yet";
@@ -522,7 +523,7 @@
       pane.replaceChildren(
         h("div", { class: "tools" }, search, count, h("label", {}, follow, "Follow the video")),
         h("p", { class: "note" }, `Machine transcript${d.transcriber ? ` (${d.transcriber})` : ""}${english ? ", English by Mercury" : ""}.`,
-          (d.terms || []).length ? " Underlined terms open an explanation." : ""),
+          (d.terms || []).length ? " Underlined terms open an explanation." : "", lacking(d, "english")),
         list);
       this.cur = -1;
     }
@@ -568,7 +569,7 @@
         : SRC && d.status && d.status.stage === "done" && (d.transcript || []).length
           ? h("div", {}, h("p", { class: "empty" }, "No terms here yet: your AI can explain them in the chat."),
               h("div", { class: "chips" }, h("button", { class: "chip", onclick: () => this.ask(ASK_FIRST[1]) }, "Ask for the key terms")))
-          : h("p", { class: "empty" }, d.status && d.status.stage === "done" ? "No terms for this video." : "The terms come with the summary."));
+          : h("p", { class: "empty" }, d.status && d.status.stage === "done" ? lacking(d, "terms") || "No terms for this video." : "The terms come with the summary."));
     }
 
     termCard(t, k, withId) {

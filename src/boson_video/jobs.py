@@ -176,6 +176,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
     where = library.folder(name, root)
     started = time.time()
     stage = "scenes"
+    made: dict = {}
     try:
         _write_status(where, stage=stage, started=started)
         if library.exists(name, root):
@@ -203,7 +204,7 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
             stage = "summary"
             _write_status(where, stage=stage, started=started)
             try:
-                add_summary(tl, where=where)
+                made = add_summary(tl, where=where)
                 library.save(tl, where)
             except Exception as e:  # the summary is an extra; the words are what the plugin needs
                 _write_status(where, stage="done", started=started, note=f"no summary: {e}")
@@ -214,6 +215,8 @@ def _build(ref: str, name: str, root: Path | None, words: bool, title: str | Non
                            "Put it in .env, or in ~/.boson-video/.env, restart, and open the video again.")
         elif words and "screens" not in tl.timings and tl.video.id and not reads_screens(tl.video.id) and screens.available():
             why["note"] = "Screen text isn't read here: this server never fetches YouTube's picture. The player shows it."
+        if made.get("lacking"):
+            why["lacking"] = made["lacking"]  # what the writer couldn't make, for the page to say
         _write_status(where, stage="done", started=started, seconds=round(time.time() - started, 1), **why)
     except Exception as e:
         _write_status(where, stage="error", started=started, failed_at=stage, error=str(e).strip().splitlines()[0][:300],
