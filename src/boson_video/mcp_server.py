@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from mcp.server.apps import Apps, ResourceCsp
 from mcp.server.mcpserver import Image, MCPServer
@@ -15,6 +16,8 @@ from mcp_types import ToolAnnotations
 
 from . import __version__, plugin, viewer
 from .env import load_env
+
+REMOTE = False  # reached at an address (--http): local file paths aren't opened for whoever has it
 
 INSTRUCTIONS = """Boson-Video lets you read a video like a document: what was said (a timed transcript, with English when the video is in another language), what was shown (frames at full resolution where something new appears), and where.
 
@@ -49,6 +52,8 @@ def video_open(video: str) -> str:
     transcription about 10 s for 10 minutes and 25 s for 35 minutes) and returns as soon as the
     map is ready, saying when the words will be. Call it again later for the full briefing.
     """
+    if REMOTE and not plugin.is_youtube(video):
+        return "Over the web this plugin opens YouTube links and ids only, not files on its computer."
     return _safe(plugin.open_video, video)
 
 
@@ -158,6 +163,7 @@ def remote_token() -> str:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(secrets.token_urlsafe(24), encoding="utf-8")
+    os.chmod(path, 0o600)  # the address is the key: for this account only
     return path.read_text(encoding="utf-8").strip()
 
 
@@ -177,6 +183,9 @@ def main(argv: list[str] | None = None) -> None:
         server.run("stdio")
         return
     from mcp.server.transport_security import TransportSecuritySettings
+
+    global REMOTE
+    REMOTE = True
 
     path = f"/mcp/{remote_token()}"
     print(f"boson-video plugin over HTTP: http://127.0.0.1:{args.port}{path}", flush=True)

@@ -16,6 +16,7 @@ from . import ask as ask_mod
 from . import checker, frames as frames_mod, jobs, library
 from .scenes import profile
 from .timeline import Segment, Sentence, Timeline
+from .youtube import YouTubeError, parse_video_id
 
 READ_BUDGET = 12_000  # estimated tokens per video_read reply, well under Claude Code's 25k cap
 MAX_FRAMES = 12  # about 1,200 tokens each at 1280 px; claude.ai takes 20 images a message
@@ -122,6 +123,15 @@ def _said_at(tl: Timeline, t: float, english: list[str]) -> str:
 
 
 # --- the tools ------------------------------------------------------------------------------
+
+def is_youtube(video: str) -> bool:
+    """A YouTube link or id (not a file path)."""
+    try:
+        parse_video_id(video)
+    except YouTubeError:
+        return False
+    return not Path(video).expanduser().exists()
+
 
 def open_video(video: str, wait: float = 10.0, root: Path | None = None) -> str:
     """Start building the video if needed and return its briefing."""
