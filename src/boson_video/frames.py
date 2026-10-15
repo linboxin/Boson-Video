@@ -28,6 +28,7 @@ from PIL import Image
 from .audio import js_runtimes
 from .local import ffmpeg
 from .timeline import Timeline
+from .youtube import downloads_allowed
 
 WIDTH = 1280
 STREAM_FORMAT = "bv*[height<=1080][vcodec^=avc1]/bv*[height<=1080]/bv*"
@@ -119,6 +120,8 @@ def _source(tl: Timeline, where: Path) -> str:
     """A path or URL ffmpeg can seek in: the local file, or YouTube's video-only stream."""
     if not tl.video.id:
         return tl.video.url
+    if not downloads_allowed():
+        raise RuntimeError("this server doesn't fetch from YouTube")  # thumbnails instead
     cache = where / "stream.json"
     if cache.exists():
         saved = json.loads(cache.read_text(encoding="utf-8"))

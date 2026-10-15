@@ -57,8 +57,8 @@ keeps one frame every 2 s or more, and packs them into sheets of its own.
 ## Limits
 
 - This is a personal research prototype. YouTube's terms don't allow automated
-  access for products, which is one more reason the extension is the plan for
-  anything shared.
+  access for products, which is one more reason a shared server never fetches
+  from YouTube: the user's computer does (`boson-video send`).
 - Storyboard frames are small. They show *what's on screen and when*, not small
   text. That is what the full-resolution step is for.
 - Live streams aren't supported. Private and age-restricted videos fail with

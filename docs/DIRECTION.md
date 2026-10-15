@@ -71,8 +71,8 @@ Three layers, each with one job:
    `boson-video web`, and a question asked there goes to the user's own AI (since 2026-10-10).
 2. **The website** (`boson-video serve`): paste a YouTube link on the front page; the page
    opens once the scene map is ready (seconds) and fills in as the words, the screen and the
-   summary arrive. It runs on the user's computer, so YouTube downloads stay on their side; a
-   hosted version waits for the Chrome extension (milestone 9). Each video's page: target design
+   summary arrive. It runs on the user's computer, so YouTube downloads stay on their side; the
+   hosted product page (item 3) takes YouTube videos sent from the user's computer. Each video's page: target design
    [read-view.html](read-view.html) (open it in a browser). The ribbon (the whole video
    on one strip: most-replayed curve, scene changes, chapters), the summary with every
    sentence linked and checked, the transcript line by line with English beneath and terms
@@ -82,8 +82,9 @@ Three layers, each with one job:
    simpler design and no product name. Paste a YouTube link or drop a video file; each video
    gets one page: the player, the ribbon (hover for that second's frame and words) and a
    readout on one side; Summary, Transcript, Terms, Scenes and Ask in tabs on the other, in the
-   original, both or English. On a server, uploads work and YouTube links come through the
-   browser extension (milestone 9). Items 2 and 3 were built in parallel on 2026-10-06 and do
+   original, both or English. On a server, uploads work, and a YouTube video comes from the
+   user's computer: `boson-video send <link>` makes the scene map and fetches the sound there
+   (seconds), and the server does the rest without contacting YouTube (since 2026-10-14). Items 2 and 3 were built in parallel on 2026-10-06 and do
    the same job; which one stays is still open.
 
 Layouts by kind of video, for later:
@@ -125,10 +126,10 @@ Layouts by kind of video, for later:
 | 4 | **Plugin:** engine runs without keys; `timeline.json` versioned with a spec; MCP server with briefing, read, frames (full resolution), search, check; jobs in the background; Jev's first-option bias handled | Done, 2026-10-04 (Cursor still untried). Packaged 2026-10-08: `uvx boson-video mcp` on a fresh machine, no Node, ffmpeg or keys; published the same day: PyPI `boson-video` 0.2.0 and the MCP Registry (`io.github.linboxin/boson-video`, active); the repo is public, MIT. 2026-10-10: the video's page in the chat (MCP Apps), checked in a stand-in host and headless Chrome, not yet in Claude Desktop, claude.ai, ChatGPT or Cursor | Claude Code explained `qbReD1cGykQ` from the plugin alone in 51 s, citing times and reading numbers shown only on screen. `slFa9Vx3crw` works through every tool. `zjkBMFhNj_g` with no keys: map in 10 s, English words by Parakeet in 77 s, numbers in claims found by the free check |
 | 5 | **Judge:** check the English the reader sees; ranked check labels on every line; a local check model if it passes the planted-error test; Jev picks where to look; Jev's cost recorded | After the product (decided 2026-10-06) | Planted-error test passes for each checker; the label on every line is right |
 | 6 | **Screen text:** OCR at the chosen frames; burned-in subtitles kept apart and used to correct and score the transcript | Done, 2026-10-04 (correcting the transcript from subtitles: later) | 19 of 20 hand-checked slides of `zjkBMFhNj_g` read right (one small-print paragraph garbled; small text loses its spaces). `qbReD1cGykQ`'s subtitles land apart at 85 of 88 moments. SenseVoice differs from them on 14.4% of characters (an upper bound: OCR errors and script-vs-speech differences included); against human captions it scores 4.8% |
-| 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | In progress, 2026-10-07: runs on this computer (`boson-video web`), checked on three videos at desktop and phone size; hosting next | Invited people use it on a server: uploads there, YouTube links through the extension (milestone 9) |
+| 6b | **Product page:** an invite-only page per video in a new design, no product name: a link or an uploaded file in; the ribbon with a frame preview at any second; Summary, Transcript, Terms, Scenes and Ask tabs; the original, both or English everywhere | Hosted uploads live, 2026-10-11: deployed on the existing Coolify server with a persistent volume, health check, bounded build workers and interrupted-job recovery. Synthetic upload verified on Linux: Parakeet transcript, OCR, Mercury summary, Jev checks, Ask, playback and frames; document, invite and saved answer survived a restart. 167 offline tests passed. Long-video/load testing remains. 2026-10-14: YouTube by `boson-video send` (the computer sends the scene map and the sound; the server never contacts YouTube), checked against a hosted-mode server on the Mac with an 18:40 and a 2:25:52 video; deployed the same day (the live page answers a pasted link with the command); a video sent to the live server not yet checked | Invited people use it on a server: uploads there, YouTube videos sent from their computer |
 | 7 | **Moment:** one object joins the words, the picture code, the new lines, and the frame; the four codes (state, delta, trajectory, seek) | Done, 2026-10-06 (the summary still cites passages, not moments: next) | `qbReD1cGykQ`: 90 moments (22 state, 44 delta, 24 trajectory: its animated chat demos and diagrams). KL = 2.71, shown and never said, comes back as the delta at 9:15 with its frame. Search, check, frame captions and the page cite that same moment. On six videos, a run of changes with no text on screen (a speaker at a podium) stays state and delta; `slFa9Vx3crw`'s scrolled article (21:50–23:20) is a trajectory, "better watched than read" |
 | 8 | Bring your own model for the page (any OpenAI-compatible endpoint: OpenAI, Gemini, Ollama, Mercury) | Started 2026-10-09: `llm.py` takes any OpenAI-compatible endpoint by configuration; only Mercury tested | The page builds with each of them |
-| 9 | Hosted plugin (ChatGPT and other web apps) and the Chrome extension | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
+| 9 | Hosted plugin (ChatGPT and other web apps) | | YouTube downloads stay on the user's side; the hosted part never downloads YouTube |
 | 10 | Later: a library across videos, layouts by kind of video, creator tools | | After one lecture can be retrieved as moments |
 
 ## Who does what
@@ -247,11 +248,25 @@ videos on our servers (bot checks and other people's rights).
   the installed plugin first (`uvx boson-video mcp`, listed in the MCP Registry as
   `io.github.linboxin/boson-video`): it runs on the user's computer, so YouTube works and it costs
   the project nothing. The connect-by-address plugin for web apps follows the extension and accounts.
+- 2026-10-14: **YouTube on the hosted site comes from the user's computer; no extension.** What a
+  server can get from YouTube was recorded on 2026-10-13 (see Facts): the watch page and its images
+  only; the captions, the transcript panel and the streams all need YouTube's tokens. So
+  `boson-video send` makes the scene map and fetches the sound on the user's computer (seconds)
+  and sends both; the server transcribes, writes and checks, and never contacts YouTube. The
+  screen isn't read for those videos on the server (no picture there); reading it on demand from
+  the user's side comes later. The browser extension is dropped.
 - 2026-10-06: a new interface for it: simple, no product name on the page, not packed;
   chat-based, answering with good-looking output. Making the plugin show visuals inside
   ChatGPT and Grok comes later.
 
-## Facts to build on (checked 2026-09-24 to 2026-10-08)
+## Facts to build on (checked 2026-09-24 to 2026-10-13)
+
+- What a YouTube watch page fetches, recorded in Chrome on 2026-10-13: the captions
+  (`/api/timedtext`) carry a token (`pot`) minted just before by `/api/jnn/v1/GenerateIT`; the
+  transcript panel (`/youtubei/v1/get_transcript`) sends an attestation, and headless Chrome was
+  refused (400, failed precondition); the audio and video come from `googlevideo.com` with signed
+  parameters. The watch page itself (title, chapters, most replayed, the storyboard and caption
+  lists) and the storyboard images need none of this, which is all the scene map uses.
 
 - A stranger's computer, tested 2026-10-08 with the built package in a fresh home, no Node, no
   ffmpeg on the PATH and no keys: yt-dlp needs a JavaScript runtime for YouTube, so the package
@@ -321,7 +336,7 @@ videos on our servers (bot checks and other people's rights).
   past it, with or without a browser User-Agent, while `f4zGqjYWS_Q` had read fine the day before.
   This looks like YouTube's bot check (what yt-dlp calls a PO token), which we don't get around, so
   such a video gets thumbnails and no screen text, and the command line now says why. Frames read
-  in the user's browser (the extension) are the way through.
+  on the user's side are the way through.
 - Claude Code with only the plugin (2026-10-04, `qbReD1cGykQ`): 8 turns in 51 s; it read the
   section, looked at the scene map's frames, then at exact moments, and checked two of its own
   claims before answering.

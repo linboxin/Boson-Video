@@ -42,12 +42,54 @@ def keys(monkeypatch):
 
 def test_translate_fills_every_passage_and_retries_a_short_reply():
     tl = _tl()
-    short = {"lines": [{"id": 0, "en": "first"}]}
-    full = {"lines": [{"id": i, "en": f"line {i}"} for i in range(4)]}
+    short = {"p0": {"starts": "先通过", "en": "first"}}
+    full = {f"p{i}": {"starts": s.text[:5], "en": f"line {i}"} for i, s in enumerate(tl.transcript)}
     english, stats = study.translate(tl, [], transport=_mercury(short, full))
     assert english == ["line 0", "line 1", "line 2", "line 3"]
     assert stats["missing"] == 0 and stats["cost_usd"] > 0
 
+
+
+def _by_chunk(reply):
+    """Mercury answering each chunk by the ids it was given (chunks run at once, in any order)."""
+    def handle(request):
+        payload = json.loads(json.loads(request.content)["messages"][1]["content"])
+        ids = [int(line.split(" ", 1)[0][1:]) for line in payload["transcript"].splitlines()]
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps(reply(ids))}}],
+                                         "usage": {"prompt_tokens": 100, "completion_tokens": 50}})
+
+    return httpx.MockTransport(handle)
+
+
+def test_translate_keeps_only_english_that_quotes_its_own_passage(monkeypatch):
+    monkeypatch.setattr(study, "CHUNK", 10)
+    tl = _tl()
+    tl.transcript = [Segment(i, i + 1, f"第{i}段，" + "说了一些话" * 3) for i in range(20)]
+    # the first chunk: passage 7's English drifted onto passage 8's words; the second chunk is never usable
+    reply = lambda ids: {f"p{i}": {"starts": f"p{i} " * (i == 3) + f"第{i + (i == 7)}段，说", "en": f"passage {i}"}
+                         for i in ids} if ids[0] == 0 else {}  # passage 3 quotes its key too: still its own
+    english, stats = study.translate(tl, [], transport=_by_chunk(reply))
+    assert english[:10] == [f"passage {i}" for i in range(7)] + ["", "passage 8", "passage 9"]  # left out, not misplaced
+    assert english[10:] == [""] * 10 and stats["missing"] == 11
+    with pytest.raises(study.llm.LLMError, match="no usable translation"):
+        study.translate(tl, [], transport=_by_chunk(lambda ids: {}))
+
+
+def test_failed_english_keeps_the_terms_and_says_why(monkeypatch):
+    from boson_video import checker, pipeline, writer
+    from boson_video.timeline import Sentence, Summary, Term
+
+    tl = _tl()
+    term = Term("残差流", "残差流", "residual stream", "cánchā liú", "The model's running state.", Sentence("", "", [1]))
+    monkeypatch.setattr(writer, "write", lambda tl, names, effort=None: (Summary(tldr=[], sections=[], writer="test"), {}))
+    monkeypatch.setattr(writer, "repair", lambda tl, effort=None, check=None: {})
+    monkeypatch.setattr(checker, "check", lambda tl, where=None: {})
+    monkeypatch.setattr(study, "fill_summary_english", lambda tl, names: 0)
+    monkeypatch.setattr(study, "translate", lambda tl, names: (_ for _ in ()).throw(study.llm.LLMError("no usable translation")))
+    monkeypatch.setattr(study, "glossary", lambda tl, names, language: ([term], ["Why?"], {}))
+    made = pipeline.add_summary(tl)
+    assert tl.terms == [term] and tl.translation == []
+    assert made["lacking"] == {"english": "No English transcript: no usable translation."}
 
 def test_glossary_finds_mentions_and_orders_by_first_use():
     tl = _tl()

@@ -49,7 +49,7 @@ def _installed() -> list:
 
 
 def probe_duration(path: str) -> float:
-    err = subprocess.run([ffmpeg(), "-hide_banner", "-nostdin", "-i", path], capture_output=True).stderr
+    err = subprocess.run([ffmpeg(), "-hide_banner", "-nostdin", "-i", path], capture_output=True, timeout=30).stderr
     m = re.search(rb"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", err)
     if not m:
         raise LocalVideoError(f"ffmpeg can't read a duration from {path}")
@@ -65,7 +65,7 @@ def load(path: str) -> tuple[Video, list[Sheet], list[Frame], list[np.ndarray]]:
     vf = rf"select='isnan(prev_selected_t)+gte(t-prev_selected_t\,{gap:.3f})',scale={FRAME_W}:-2,showinfo"
     cmd = [ffmpeg(), "-hide_banner", "-nostdin", "-skip_frame", "nokey", "-i", path, "-an", "-sn",
            "-vf", vf, "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
-    proc = subprocess.run(cmd, capture_output=True)
+    proc = subprocess.run(cmd, capture_output=True, timeout=600)
     err = proc.stderr.decode("utf-8", "replace")
     if proc.returncode != 0:
         raise LocalVideoError(f"ffmpeg failed on {path}: {err.strip().splitlines()[-1] if err.strip() else '?'}")

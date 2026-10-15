@@ -48,6 +48,10 @@ def main(argv: list[str] | None = None) -> int:
         from .web import main as web_main
 
         return web_main(argv[1:])
+    if argv[:1] == ["send"]:
+        from .send import main as send_main
+
+        return send_main(argv[1:])
     if argv[:1] == ["models"]:
         return models_main(argv[1:])
     if argv[:1] == ["invite"]:
@@ -139,8 +143,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"boson-video: no summary: {e}", file=sys.stderr)
         return 1
     _write(tl, folder)
-    if "error" in stats:
-        print(f"boson-video: no translation or glossary: {stats['error']}", file=sys.stderr)
+    for why in stats.get("lacking", {}).values():
+        print(f"boson-video: {why}", file=sys.stderr)
     s = tl.summary
     print(f"summary ready in {time.perf_counter() - started:.2f} s: {len(s.sections)} sections, "
           f"{len(s.sentences())} sentences, {sum(x.check == 'supported' for x in s.sentences())} checked ✓ by {s.checker} "
